@@ -22,6 +22,51 @@ type RoadmapTopicRow = {
   resources: Resource[];
 };
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getRoadmapCacheKey(userId: string, roadmapId: string | null) {
+  return `prepai-roadmap:${userId}:${roadmapId ?? "latest"}`;
+}
+
+function loadCachedRoadmap(userId: string, roadmapId: string | null) {
+  if (typeof window === "undefined") return null;
+  try {
+    const payload = window.localStorage.getItem(
+      getRoadmapCacheKey(userId, roadmapId),
+    );
+    if (!payload) return null;
+    const parsed = JSON.parse(payload) as {
+      expiresAt: number;
+      roadmap: Roadmap;
+      topics: RoadmapTopicRow[];
+    };
+    if (Date.now() > parsed.expiresAt) {
+      window.localStorage.removeItem(getRoadmapCacheKey(userId, roadmapId));
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveRoadmapCache(
+  userId: string,
+  roadmapId: string | null,
+  roadmap: Roadmap,
+  topics: RoadmapTopicRow[],
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      getRoadmapCacheKey(userId, roadmapId),
+      JSON.stringify({ expiresAt: Date.now() + CACHE_TTL_MS, roadmap, topics }),
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export default function RoadmapPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,6 +84,12 @@ export default function RoadmapPage() {
       }
 
       const rid = searchParams.get("rid");
+      const cached = loadCachedRoadmap(userData.user.id, rid);
+      if (cached) {
+        setRoadmap(cached.roadmap);
+        setTopics(cached.topics);
+      }
+
       const roadmapQuery = supabase
         .from("roadmaps")
         .select("id, title, description, estimated_weeks")
@@ -52,7 +103,9 @@ export default function RoadmapPage() {
             .maybeSingle();
 
       if (!roadmapRow) {
-        setError("No roadmap found. Generate one from the Study page.");
+        if (!cached) {
+          setError("No roadmap found. Generate one from the Study page.");
+        }
         return;
       }
 
@@ -65,21 +118,27 @@ export default function RoadmapPage() {
         .order("order_index");
 
       if (topicsError || !topicsRows) {
-        setError("Failed to load roadmap topics.");
+        if (!cached) {
+          setError("Failed to load roadmap topics.");
+        }
         return;
       }
 
-      setRoadmap({
+      const freshRoadmap = {
         title: roadmapRow.title,
         description: roadmapRow.description ?? "",
         estimated_weeks: roadmapRow.estimated_weeks ?? 0,
         topics: [],
-      });
+      };
       const mapped = topicsRows.map((t) => ({
         ...t,
-        resources: Array.isArray(t.resources) ? (t.resources as Resource[]) : [],
+        resources: Array.isArray(t.resources)
+          ? (t.resources as Resource[])
+          : [],
       }));
+      setRoadmap(freshRoadmap);
       setTopics(mapped);
+      saveRoadmapCache(userData.user.id, rid, freshRoadmap, mapped);
     };
 
     void load();

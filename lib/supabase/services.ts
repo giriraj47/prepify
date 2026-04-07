@@ -53,7 +53,12 @@ export type ProfilePayload = {
 export async function getCurrentUser() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase.auth.getUser();
-  if (error) throw error;
+  if (error) {
+    if (error.message?.toLowerCase().includes("auth session missing")) {
+      return null;
+    }
+    throw error;
+  }
   return data.user;
 }
 

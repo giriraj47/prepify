@@ -5,10 +5,63 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getSummaryCacheKey(userId: string) {
+  return `prepai-homepage-summary:${userId}`;
+}
+
+function loadCachedSummary(userId: string) {
+  if (typeof window === "undefined") return null;
+  try {
+    const payload = window.localStorage.getItem(getSummaryCacheKey(userId));
+    if (!payload) return null;
+    const parsed = JSON.parse(payload) as {
+      expiresAt: number;
+      summary: {
+        score: number;
+        correct: number;
+        total: number;
+        weakTopics: string[];
+        strongTopics: string[];
+      };
+    };
+    if (Date.now() > parsed.expiresAt) {
+      window.localStorage.removeItem(getSummaryCacheKey(userId));
+      return null;
+    }
+    return parsed.summary;
+  } catch {
+    return null;
+  }
+}
+
+function saveSummaryCache(
+  userId: string,
+  summary: {
+    score: number;
+    correct: number;
+    total: number;
+    weakTopics: string[];
+    strongTopics: string[];
+  },
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      getSummaryCacheKey(userId),
+      JSON.stringify({ expiresAt: Date.now() + CACHE_TTL_MS, summary }),
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export default function Home() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [summary, setSummary] = useState<{
     score: number;
     correct: number;
@@ -48,28 +101,41 @@ export default function Home() {
 
   useEffect(() => {
     const loadSummary = async () => {
+      setSummaryLoading(true);
       try {
         const supabase = createSupabaseBrowserClient();
         const { data: userData } = await supabase.auth.getUser();
         if (!userData.user) return;
+
+        const cached = loadCachedSummary(userData.user.id);
+        if (cached) {
+          setSummary(cached);
+        }
+
         const { data: latest } = await supabase
           .from("assessments")
-          .select("score, correct_answers, total_questions, weak_topics, strong_topics")
+          .select(
+            "score, correct_answers, total_questions, weak_topics, strong_topics",
+          )
           .eq("user_id", userData.user.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
         if (latest) {
-          setSummary({
+          const freshSummary = {
             score: Number(latest.score ?? 0),
             correct: latest.correct_answers ?? 0,
             total: latest.total_questions ?? 0,
             weakTopics: (latest.weak_topics as string[]) ?? [],
             strongTopics: (latest.strong_topics as string[]) ?? [],
-          });
+          };
+          setSummary(freshSummary);
+          saveSummaryCache(userData.user.id, freshSummary);
         }
       } catch {
         // ignore
+      } finally {
+        setSummaryLoading(false);
       }
     };
     void loadSummary();
@@ -83,14 +149,25 @@ export default function Home() {
     );
   }
 
+  if (checking || summaryLoading) {
+    return (
+      <div className="min-h-screen bg-[#0b0b0e] text-white">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.12),transparent_55%),radial-gradient(circle_at_70%_10%,rgba(16,185,129,0.12),transparent_50%),radial-gradient(circle_at_60%_70%,rgba(59,130,246,0.12),transparent_60%)]" />
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <div className="text-sm uppercase tracking-[0.3em] text-white/60">
+              Loading Dashboard...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0b0e] text-white">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.12),transparent_55%),radial-gradient(circle_at_70%_10%,rgba(16,185,129,0.12),transparent_50%),radial-gradient(circle_at_60%_70%,rgba(59,130,246,0.12),transparent_60%)]" />
-      {checking && (
-        <div className="px-6 py-6 text-xs uppercase tracking-[0.3em] text-white/40">
-          Loading profile...
-        </div>
-      )}
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-10 px-6 py-16">
         <div>
           <p className="text-xs uppercase tracking-[0.4em] text-white/40">
@@ -100,7 +177,8 @@ export default function Home() {
             Your Prep Snapshot
           </h1>
           <p className="mt-2 text-sm text-white/60">
-            Review strengths and gaps, then continue with your roadmap or mock interview.
+            Review strengths and gaps, then continue with your roadmap or mock
+            interview.
           </p>
         </div>
 
@@ -171,12 +249,6 @@ export default function Home() {
               >
                 Interview Section
               </Link>
-              <button
-                onClick={() => router.push("/study")}
-                className="rounded-xl border border-white/15 bg-white/5 px-5 py-2 text-sm font-semibold text-white/80 hover:border-white/30"
-              >
-                Retake Questions
-              </button>
             </div>
           </div>
         </div>
