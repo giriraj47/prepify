@@ -70,6 +70,7 @@ function saveRoadmapCache(
 export default function RoadmapPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const selectedRoadmapId = searchParams.get("rid");
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [topics, setTopics] = useState<RoadmapTopicRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -183,6 +184,10 @@ export default function RoadmapPage() {
     return prev ? isTopicComplete(prev) : false;
   };
 
+  const allResourcesCompleted = topics.every(
+    (topic) => topic.resources?.every((r) => r.completed) ?? true,
+  );
+
   const toggleResource = async (
     topic: RoadmapTopicRow,
     resourceIndex: number,
@@ -240,7 +245,7 @@ export default function RoadmapPage() {
       }}
     >
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 opacity-30">
+        <div className="pointer-events-none absolute inset-0 opacity-30">
           <svg
             className="h-full w-full"
             viewBox="0 0 1200 600"
@@ -292,7 +297,7 @@ export default function RoadmapPage() {
       </div>
 
       <div className="relative">
-        <div className="absolute inset-0 opacity-50">
+        <div className="pointer-events-none absolute inset-0 opacity-50">
           <svg
             className="h-full w-full"
             viewBox="0 0 1200 1200"
@@ -324,7 +329,6 @@ export default function RoadmapPage() {
             {topics.map((topic, index) => {
               const alignRight = index % 2 === 1;
               const phaseLabel = `Phase ${index + 1}`;
-              const totalResources = topic.resources?.length ?? 0;
               const unlocked = isTopicUnlocked(index);
               const complete = isTopicComplete(topic);
               const statusLabel = complete
@@ -397,6 +401,29 @@ export default function RoadmapPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-8">
+          <div className="flex justify-center">
+            <button
+              type="button"
+              disabled={!allResourcesCompleted}
+              className={[
+                "rounded-full px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition",
+                allResourcesCompleted
+                  ? "border border-emerald-400/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20 cursor-pointer"
+                  : "border border-white/10 bg-white/5 text-white/40 cursor-not-allowed",
+              ].join(" ")}
+              onClick={() => {
+                const query = selectedRoadmapId
+                  ? `?rid=${selectedRoadmapId}`
+                  : "";
+                router.push(`/roadmap/review${query}`);
+              }}
+            >
+              Review Your Progress
+            </button>
           </div>
         </div>
       </div>

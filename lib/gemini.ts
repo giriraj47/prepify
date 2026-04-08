@@ -62,6 +62,16 @@ export interface GenerateRoadmapResult {
   roadmap: Roadmap;
 }
 
+export interface RoadmapReviewQuestion {
+  question_text: string;
+  topic: string;
+  expected_points: string[];
+}
+
+export interface GenerateRoadmapReviewQuestionsResult {
+  questions: RoadmapReviewQuestion[];
+}
+
 // ─── Gemini API types ────────────────────────────────────────
 
 interface GeminiCallOptions {
@@ -233,7 +243,7 @@ Candidate profile:
 
 Instructions:
 - Create a roadmap with 6 to 10 topics
-- Prioritise weak topics — they should appear earlier in the roadmap
+- Prioritise weak topics - they should appear earlier in the roadmap
 - Strong topics can be skipped or placed later as refreshers
 - Each topic should include 2-4 learning resources (mix of free articles, docs, videos)
 - estimated_hours should be realistic for a working professional
@@ -297,4 +307,67 @@ Return ONLY a JSON object matching this exact schema:
     }
     throw err;
   }
+}
+
+interface GenerateRoadmapReviewQuestionsParams {
+  roleName: string;
+  experienceLevel: string;
+  experienceYears: number;
+  roadmapTitle: string;
+  topics: Array<{ title: string; description?: string | null }>;
+}
+
+export async function generateRoadmapReviewQuestions(
+  params: GenerateRoadmapReviewQuestionsParams,
+): Promise<GenerateRoadmapReviewQuestionsResult> {
+  const { roleName, experienceLevel, experienceYears, roadmapTitle, topics } =
+    params;
+
+  const topicLines = topics
+    .map(
+      (topic, index) =>
+        `${index + 1}. ${topic.title}${topic.description ? ` - ${topic.description}` : ""}`,
+    )
+    .join("\n");
+
+  const prompt = `
+You are a senior interviewer creating a roadmap progress review.
+
+Candidate profile:
+- Role: ${roleName}
+- Experience: ${experienceLevel} (${experienceYears} year(s))
+- Roadmap: ${roadmapTitle}
+
+Roadmap topics:
+${topicLines}
+
+Task:
+- Generate exactly 10 descriptive (open-ended) questions.
+- Questions must evaluate practical understanding and reasoning, not definitions only.
+- Every question must map to one roadmap topic.
+- Cover as many different roadmap topics as possible.
+- Do NOT generate MCQ or true/false questions.
+
+Strict output requirements:
+- Output MUST be valid JSON and nothing else (no markdown, no code fences, no commentary).
+- Use double quotes for all strings and keys.
+- Do NOT include trailing commas.
+- Do NOT include any extra keys or text outside the JSON object.
+
+Return ONLY this schema:
+{
+  "questions": [
+    {
+      "question_text": "string",
+      "topic": "string",
+      "expected_points": ["string", "string", "string"]
+    }
+  ]
+}
+`;
+
+  return callGemini<GenerateRoadmapReviewQuestionsResult>(prompt, {
+    temperature: 0.5,
+    maxTokens: 5000,
+  });
 }
