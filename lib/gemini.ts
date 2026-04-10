@@ -371,3 +371,72 @@ Return ONLY this schema:
     maxTokens: 5000,
   });
 }
+
+export interface InterviewQuestion {
+  order_index: number;
+  type: "introduction" | "technical" | "system_design" | "problem_solving" | "behavioural" | "closing";
+  question: string;
+  follow_up?: string;
+  expected_duration_mins: number;
+  evaluation_criteria: string[];
+}
+
+export interface GenerateInterviewQuestionsResult {
+  questions: InterviewQuestion[];
+}
+
+export interface GenerateInterviewQuestionsParams {
+  roleName: string;
+  experienceLevel: string;
+  experienceYears: number;
+}
+
+export async function generateInterviewQuestions(
+  params: GenerateInterviewQuestionsParams,
+): Promise<GenerateInterviewQuestionsResult> {
+  const { roleName, experienceLevel, experienceYears } = params;
+
+  const prompt = `
+You are a senior engineering interviewer conducting a real technical interview.
+Generate exactly 10 interview questions for a ${experienceLevel}-level ${roleName}
+with ${experienceYears} year(s) of experience.
+
+The interview should take 35-50 minutes total if answered thoroughly.
+
+Question distribution (follow this exactly):
+1. introduction     — 1 question  — 3-4 min expected answer
+2. technical        — 4 questions — 4-6 min each
+3. system_design    — 1 questions — 5-7 min each  
+4. problem_solving  — 1 question  — 4-5 min
+5. behavioural      — 1 question  — 3-4 min
+6. closing          — 1 question  — 2-3 min
+
+Rules:
+- Questions must require EXPLANATION, not just a yes/no or one-liner
+- Technical questions must probe deep understanding, not surface definitions
+- System design questions must ask the candidate to architect something real
+- Behavioural questions must use the STAR format prompt (Situation, Task, Action, Result)
+- evaluation_criteria is a list of 3-5 things a GOOD answer would mention
+- follow_up is an optional probing question to go deeper (not asked automatically)
+- expected_duration_mins is how long a thorough answer should take
+
+Return ONLY valid JSON matching this schema:
+{
+  "questions": [
+    {
+      "order_index": 1,
+      "type": "introduction" | "technical" | "system_design" | "problem_solving" | "behavioural" | "closing",
+      "question": "string — the actual question text",
+      "follow_up": "string — optional probing follow-up",
+      "expected_duration_mins": number,
+      "evaluation_criteria": ["string", "string", "string"]
+    }
+  ]
+}
+`;
+
+  return callGemini<GenerateInterviewQuestionsResult>(prompt, {
+    temperature: 0.7,
+    maxTokens: 5000,
+  });
+}

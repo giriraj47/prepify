@@ -1,85 +1,180 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+import { useRouter } from "next/navigation";
+import { VoiceTranscriptionButton, VoiceWaveform } from "@/app/components/shared/VoiceTranscription";
 
 export default function InterviewPage() {
+  const router = useRouter();
   const [response, setResponse] = useState("");
-  const { transcript, listening, resetTranscript } = useSpeechRecognition();
+  const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
+
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      import("web-speech-cognitive-services").then(({ createSpeechServicesPonyfill }) => {
-        const region = (
-          process.env.NEXT_PUBLIC_AZURE_SPEECH_REGION || ""
-        )
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, "");
+    async function startInterview() {
+      try {
+        const res = await fetch("/api/interview/start", {
+          method: "POST",
+        });
 
-        if (region && process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY) {
-          const ponyfillFactory = createSpeechServicesPonyfill({
-            credentials: {
-              region: region,
-              subscriptionKey: (process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY || "").trim(),
-            },
-          });
-          SpeechRecognition.applyPolyfill(ponyfillFactory.SpeechRecognition);
+        const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to start interview.");
         }
-      });
+
+        setQuestions(data.questions);
+        setSessionId(data.sessionId);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
     }
+
+    startInterview();
   }, []);
 
-  useEffect(() => {
-    if (!listening && transcript) {
-      setResponse((prev) => {
-        const needsSpace =
-          prev.length > 0 && !prev.endsWith(" ") && !prev.endsWith("\n");
-        return prev + (needsSpace ? " " : "") + transcript;
-      });
-      resetTranscript();
-    }
-  }, [listening, transcript, resetTranscript]);
-
-  const toggleListening = () => {
-    if (listening) {
-      SpeechRecognition.stopListening();
-    } else {
-      SpeechRecognition.startListening({ continuous: true, language: "en-US" });
-    }
+  const handleTranscript = (transcript: string) => {
+    setResponse((prev) => {
+      const needsSpace =
+        prev.length > 0 && !prev.endsWith(" ") && !prev.endsWith("\n");
+      return prev + (needsSpace ? " " : "") + transcript;
+    });
+    setInterimTranscript("");
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (listening) {
-      SpeechRecognition.stopListening();
-      resetTranscript();
-    }
     setResponse(e.target.value);
   };
 
+  const handleSubmit = async () => {
+    if (!sessionId || !questions[currentIndex] || submitting) return;
+
+    // To prevent rapid clicks
+    setSubmitting(true);
+
+    const isLastQuestion = currentIndex === questions.length - 1;
+    const currentQuestion = questions[currentIndex];
+
+    try {
+      // 1. Submit response
+      const resData = await fetch("/api/interview/response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          questionIndex: currentIndex,
+          questionText: currentQuestion.question,
+          questionType: currentQuestion.type,
+          transcript: response,
+          durationSeconds: 0, // Could be tracked later
+        }),
+      });
+
+      if (!resData.ok) {
+        console.error("Failed to submit response");
+      }
+
+      if (isLastQuestion) {
+        // Update progress to completed
+        await fetch("/api/interview/progress", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            currentQuestionIndex: currentIndex,
+            status: "completed",
+          }),
+        });
+
+        // Redirect or show a completion screen
+        router.push("/dashboard");
+      } else {
+        // Move to next question
+        const nextIndex = currentIndex + 1;
+        await fetch("/api/interview/progress", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            currentQuestionIndex: nextIndex,
+          }),
+        });
+
+        setCurrentIndex(nextIndex);
+        setResponse(""); // Clear text area for next question
+        setInterimTranscript("");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#121315] px-6 py-20 text-white flex items-center justify-center">
+        <p className="text-slate-400">Loading interview environment...</p>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-[#121315] px-6 py-20 text-white flex items-center justify-center">
+        <div className="max-w-xl text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button onClick={() => router.push("/dashboard")} className="px-4 py-2 bg-slate-800 rounded-lg">Return to Dashboard</button>
+        </div>
+      </main>
+    );
+  }
+
+  if (questions.length === 0 || !questions[currentIndex]) {
+    return null;
+  }
+
+  const currentQuestion = questions[currentIndex];
+  const isLastQuestion = currentIndex === questions.length - 1;
+
   const displayValue =
-    listening && transcript
+    isListening && interimTranscript
       ? response +
         (response.length > 0 && !response.endsWith(" ") && !response.endsWith("\n")
           ? " "
           : "") +
-        transcript
+        interimTranscript
       : response;
+
+  const typeDisplay = currentQuestion.type.replace(/_/g, " ");
 
   return (
     <main className="min-h-screen bg-[#121315] px-6 py-20 text-white">
       <div className="mx-auto w-full max-w-5xl space-y-10">
         <section className="space-y-4">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-            System Design Patterns
-          </p>
-          <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            Describe the trade-offs between choosing Optimistic Locking versus{" "}
-            Pessimistic Locking in a high-concurrency e-commerce application.
+          <div className="flex justify-between items-center">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+              {typeDisplay} Question ({currentIndex + 1} / {questions.length})
+            </p>
+          </div>
+          <h1 className="max-w-4xl text-2xl font-semibold tracking-tight text-white sm:text-4xl min-h-[5rem]">
+            {currentQuestion.question}
           </h1>
-          <p className="max-w-3xl text-base leading-8 text-slate-400">
-            Focus on data integrity, latency, and scalability.
-          </p>
+          {currentQuestion.follow_up && (
+            <p className="max-w-3xl text-sm leading-8 text-slate-400 border-l-2 border-[#44e2cd] pl-4">
+              <span className="font-semibold text-slate-300 block mb-1">Follow up for consideration:</span>
+              {currentQuestion.follow_up}
+            </p>
+          )}
         </section>
 
         <section className="rounded-4xl bg-[#171a20] p-8 shadow-[0_32px_64px_-32px_rgba(0,0,0,0.24)]">
@@ -89,62 +184,35 @@ export default function InterviewPage() {
                 id="response"
                 name="response"
                 rows={14}
-                placeholder="Type your response here..."
+                placeholder="Type or dictate your response here..."
                 value={displayValue}
                 onChange={handleTextChange}
+                disabled={submitting}
                 className="min-h-85 w-full resize-none rounded-3xl bg-[#121315] px-6 py-5 pr-16 text-base text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-[#c0c1ff]/20"
               />
 
-              {listening && (
-                <div className="absolute bottom-6 left-6 flex items-center gap-3">
-                  <div className="flex h-5 items-end gap-[3px]">
-                    {[12, 16, 20, 14, 18, 12, 16].map((height, i) => (
-                      <div
-                        key={i}
-                        className="animate-waveform w-[3px] rounded-full bg-[#10b981]"
-                        style={{
-                          height: `${height}px`,
-                          animationDelay: `${i * 0.12}s`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm font-medium tracking-wide text-[#10b981]">
-                    Recording...
-                  </span>
-                </div>
-              )}
+              <VoiceWaveform 
+                isVisible={isListening} 
+                className="absolute bottom-6 left-6" 
+              />
 
-              <button
-                type="button"
-                onClick={toggleListening}
-                className={`pointer-events-auto absolute bottom-5 right-5 inline-flex h-11 w-11 items-center justify-center transition ${
-                  listening
-                    ? "rounded-full bg-[#064e3b] hover:bg-[#065f46]"
-                    : "rounded-2xl bg-[#0f172a] text-[#44e2cd] shadow-[0_20px_40px_-24px_rgba(68,226,205,0.65)] hover:bg-[#1a2332]"
-                }`}
-              >
-                {listening ? (
-                  <div className="h-3.5 w-3.5 rounded-[2px] bg-[#10b981]" />
-                ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="h-6 w-6"
-                  >
-                    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2Zm-5 7.5a1 1 0 0 0 1-1V16h-2v1.5a1 1 0 0 0 1 1Zm0-14a1 1 0 0 1 1 1v6a1 1 0 0 1-2 0V5a1 1 0 0 1 1-1Z" />
-                  </svg>
-                )}
-              </button>
+              <VoiceTranscriptionButton
+                onTranscript={handleTranscript}
+                onInterimTranscript={setInterimTranscript}
+                onListeningChange={setIsListening}
+                className="absolute bottom-5 right-5"
+              />
             </div>
           </div>
 
           <div className="mt-8 flex justify-center">
             <button
               type="button"
-              className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-[#c0c1ff] via-[#9ca1ff] to-[#8083ff] px-8 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-950 shadow-[0_25px_60px_-40px_rgba(56,189,248,0.6)] transition hover:brightness-110"
+              onClick={handleSubmit}
+              disabled={submitting || (!response.trim() && !isListening)}
+              className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-[#c0c1ff] via-[#9ca1ff] to-[#8083ff] px-8 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-950 shadow-[0_25px_60px_-40px_rgba(56,189,248,0.6)] transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Submit Response
+              {submitting ? "Processing..." : (isLastQuestion ? "Finish Interview" : "Submit & Continue")}
             </button>
           </div>
         </section>

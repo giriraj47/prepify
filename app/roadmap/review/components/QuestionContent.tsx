@@ -1,4 +1,7 @@
-import { useRef, useEffect } from "react";
+"use client";
+
+import { useRef, useEffect, useState } from "react";
+import { VoiceTranscriptionButton, VoiceWaveform } from "@/app/components/shared/VoiceTranscription";
 
 interface QuestionContentProps {
   question: {
@@ -22,6 +25,24 @@ export function QuestionContent({
   onAnswerChange,
 }: QuestionContentProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
+
+  const handleVoiceTranscript = (transcript: string) => {
+    onAnswerChange(
+      (currentAnswer || "") +
+        ((currentAnswer || "").length > 0 && !(currentAnswer || "").endsWith(" ") ? " " : "") +
+        transcript
+    );
+    setInterimTranscript("");
+  };
+
+  const displayValue =
+    isListening && interimTranscript
+      ? (currentAnswer || "") +
+        ((currentAnswer || "").length > 0 && !(currentAnswer || "").endsWith(" ") ? " " : "") +
+        interimTranscript
+      : currentAnswer || "";
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -91,18 +112,32 @@ export function QuestionContent({
             )}
           </div>
         </div>
-        <textarea
-          ref={textareaRef}
-          value={currentAnswer ?? ""}
-          onChange={(e) => onAnswerChange(e.target.value)}
-          disabled={submitted}
-          placeholder="Begin typing your structured response here..."
-          className="w-full rounded-xl border border-white/15 bg-[#0b1224] px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-indigo-400/40 resize-none overflow-hidden"
-          style={{
-            minHeight: "160px",
-            maxHeight: "400px",
-          }}
-        />
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={displayValue}
+            onChange={(e) => onAnswerChange(e.target.value)}
+            disabled={submitted}
+            placeholder="Begin typing your structured response here..."
+            className="w-full rounded-xl border border-white/15 bg-[#0b1224] px-4 py-3 pr-14 text-sm text-white outline-none placeholder:text-white/40 focus:border-indigo-400/40 resize-none overflow-hidden"
+            style={{
+              minHeight: "160px",
+              maxHeight: "400px",
+            }}
+          />
+
+          <VoiceWaveform 
+            isVisible={isListening} 
+            className="absolute bottom-4 left-4 scale-75 origin-left" 
+          />
+
+          <VoiceTranscriptionButton
+            onTranscript={handleVoiceTranscript}
+            onInterimTranscript={setInterimTranscript}
+            onListeningChange={setIsListening}
+            className="absolute bottom-3 right-3 scale-90"
+          />
+        </div>
       </div>
 
       <p className="text-xs text-white/50 italic">
