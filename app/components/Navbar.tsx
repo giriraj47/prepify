@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useAuth, useProfile } from "@/lib/hooks";
 
 type Profile = {
   name: string;
@@ -13,42 +13,14 @@ type Profile = {
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { signOut } = useAuth();
+  const { profile } = useProfile();
   const [mounted, setMounted] = useState(false);
   const [canRender, setCanRender] = useState(false);
   const [open, setOpen] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    const loadProfile = async () => {
-      const supabase = createSupabaseBrowserClient();
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        setProfile(null);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("users")
-        .select("full_name, experience_years, experience_level, roles(name)")
-        .eq("id", userData.user.id)
-        .maybeSingle();
-      if (error || !data) {
-        setProfile(null);
-        return;
-      }
-      const roleName = Array.isArray(data.roles)
-        ? data.roles[0]?.name
-        : data.roles?.name;
-      const role = roleName ?? "Unknown";
-      const experience = data.experience_level ?? "Unknown";
-      setProfile({
-        name: data.full_name ?? "User",
-        role,
-        experience,
-      });
-    };
-
-    loadProfile();
   }, [pathname]);
 
   useEffect(() => {
@@ -66,14 +38,14 @@ export default function Navbar() {
   }, []);
 
   const initials = useMemo(() => {
-    if (!profile?.name) return "U";
-    return profile.name
+    if (!profile?.full_name) return "U";
+    return profile.full_name
       .split(" ")
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join("");
-  }, [profile?.name]);
+  }, [profile?.full_name]);
 
   if (pathname === "/onboarding" || pathname === "/login") {
     return null;
@@ -112,18 +84,20 @@ export default function Navbar() {
                   Profile
                 </p>
                 <p className="mt-2 text-base font-semibold text-white">
-                  {profile?.name ?? "Guest"}
+                  {profile?.full_name ?? "Guest"}
                 </p>
               </div>
               <div className="grid gap-2 rounded-2xl bg-white/5 p-3">
                 <div className="flex items-center justify-between text-gray-300">
                   <span>Role</span>
-                  <span className="text-white">{profile?.role ?? "—"}</span>
+                  <span className="text-white">
+                    {profile?.roles?.name ?? "—"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-gray-300">
                   <span>Experience</span>
                   <span className="text-white">
-                    {profile?.experience ?? "—"}
+                    {profile?.experience_level ?? "—"}
                   </span>
                 </div>
               </div>
@@ -141,8 +115,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={async () => {
-                    const supabase = createSupabaseBrowserClient();
-                    await supabase.auth.signOut();
+                    await signOut();
                     setOpen(false);
                     router.push("/login");
                   }}

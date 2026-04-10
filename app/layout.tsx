@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "./components/Navbar";
+import { AuthProvider } from "@/lib/providers/auth-provider";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PrepAI",
-  description: "AI Interview Coaching",
+  title: "Prepify — AI Interview Coaching",
+  description:
+    "Master your technical interviews with AI-powered assessments, intelligent roadmaps, and mock interviews.",
 };
 
 export default function RootLayout({
@@ -26,11 +32,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Navbar />
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
