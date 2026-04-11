@@ -6,7 +6,8 @@ import {
   saveResponseEvaluations,
   completeInterviewSession,
   buildEvaluationInput,
-  PoolQuestion
+  PoolQuestion,
+  ClientInterviewQuestion
 } from "@/lib/supabase/server-services";
 
 export const runtime = "nodejs";
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
 
     // Map responses to inputs
     const inputs = buildEvaluationInput(
-      poolQuestions.length > 0 ? poolQuestions : session.questions.map(q => ({ ...q, evaluation_criteria: [] })) as any,
+      poolQuestions.length > 0 ? poolQuestions : session.questions.map((q: ClientInterviewQuestion) => ({ ...q, evaluation_criteria: [] })) as any,
       responses
     );
 
