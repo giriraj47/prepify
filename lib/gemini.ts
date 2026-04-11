@@ -1,14 +1,13 @@
-// lib/gemini.ts
+// lib/gemini.ts (Powered by Groq)
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 
-function getGeminiApiUrl(modelOverride?: string): string {
-  const model =
-    modelOverride ??
-    process.env.GEMINI_MODEL ??
-    process.env.GOOGLE_GENERATIVE_AI_MODEL ??
-    DEFAULT_GEMINI_MODEL;
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+interface GroqResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
 }
 
 // ─── Shared types ────────────────────────────────────────────
@@ -72,63 +71,54 @@ export interface GenerateRoadmapReviewQuestionsResult {
   questions: RoadmapReviewQuestion[];
 }
 
-// ─── Gemini API types ────────────────────────────────────────
-
-interface GeminiCallOptions {
-  temperature?: number;
-  maxTokens?: number;
-  model?: string;
-}
-
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text?: string }>;
-    };
-  }>;
-}
-
-// ─── Core function ───────────────────────────────────────────
-
-async function callGemini<T>(
+async function callGroq<T>(
   prompt: string,
-  options: GeminiCallOptions = {},
+  options: { model?: string; temperature?: number; maxTokens?: number } = {},
 ): Promise<T> {
-  const apiKey =
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
-  if (!apiKey)
-    throw new Error(
-      "GOOGLE_GENERATIVE_AI_API_KEY (or GEMINI_API_KEY) is not set.",
-    );
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is not set in .env.local");
+
+  const model = options.model ?? DEFAULT_GROQ_MODEL;
 
   const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: options.temperature ?? 0.7,
-      maxOutputTokens: options.maxTokens ?? 4096,
-      responseMimeType: "application/json",
-    },
+    model: model,
+    messages: [
+      {
+        role: "system",
+        content: "You are a specialized JSON assistant. Always return valid JSON and nothing else.",
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.maxTokens ?? 4096,
+    response_format: { type: "json_object" },
   };
 
-  const res = await fetch(getGeminiApiUrl(options.model), {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
     body: JSON.stringify(body),
   });
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${errorText}`);
+    throw new Error(`Groq API error ${res.status}: ${errorText}`);
   }
 
-  const data = (await res.json()) as GeminiResponse;
-  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const data = (await res.json()) as GroqResponse;
+  const raw = data?.choices?.[0]?.message?.content;
 
-  if (!raw) throw new Error("Gemini returned an empty response.");
+  if (!raw) throw new Error("Groq returned an empty response.");
 
   const parsed = tryParseJson<T>(raw);
   if (parsed) return parsed;
-  throw new Error(`Gemini response was not valid JSON: ${raw.slice(0, 200)}`);
+  throw new Error(`Groq response was not valid JSON: ${raw.slice(0, 200)}`);
 }
 
 function tryParseJson<T>(raw: string): T | null {
@@ -167,23 +157,16 @@ export async function generateAssessmentQuestions(
   const { roleName, experienceLevel, experienceYears } = params;
 
   const prompt = `
-You are an expert technical interviewer. Generate exactly 5 multiple-choice assessment questions
+You are an expert technical interviewer. Generate exactly 10 multiple-choice assessment questions
 to evaluate a ${experienceLevel}-level ${roleName} with ${experienceYears} year(s) of experience.
 
 Rules:
 - Cover a VARIETY of topics relevant to this role (not just one area)
-- Mix difficulty: 3 easy, 5 medium, 2 hard
 - Each question must have exactly 4 options (A, B, C, D)
 - Only one option is correct
 - Keep question_text concise and unambiguous
 - The "topic" field should be a short slug like "react-hooks", "css-flexbox", "system-design"
 - The "explanation" should be 1-2 sentences explaining WHY the correct answer is right
-
-Strict output requirements:
-- Output MUST be valid JSON and nothing else (no markdown, no code fences, no commentary).
-- Use double quotes for all strings and keys.
-- Do NOT include trailing commas.
-- Do NOT include any extra keys or text outside the JSON object.
 
 Return ONLY a JSON object matching this exact schema:
 {
@@ -205,7 +188,7 @@ Return ONLY a JSON object matching this exact schema:
 }
 `;
 
-  return callGemini<GenerateQuestionsResult>(prompt, { temperature: 0.8 });
+  return callGroq<GenerateQuestionsResult>(prompt, { temperature: 0.8 });
 }
 
 interface GenerateRoadmapParams {
@@ -251,12 +234,6 @@ Instructions:
 - estimated_weeks should be the total realistic completion time
 ${strictUrls ? "- Use only real, publicly accessible https URLs. Do NOT use placeholders or broken links.\n- Prefer official docs and reputable sources (MDN, web.dev, React, TypeScript, Google, etc.).\n- Double-check that each URL is valid and specific to the resource title.\n" : ""}
 
-Strict output requirements:
-- Output MUST be valid JSON and nothing else (no markdown, no code fences, no commentary).
-- Use double quotes for all strings and keys.
-- Do NOT include trailing commas.
-- Do NOT include any extra keys or text outside the JSON object.
-
 Return ONLY a JSON object matching this exact schema:
 {
   "roadmap": {
@@ -284,28 +261,22 @@ Return ONLY a JSON object matching this exact schema:
 `;
 
   const preferredModel =
-    process.env.GOOGLE_GENERATIVE_AI_MODEL_ROADMAP ??
-    process.env.GEMINI_MODEL_ROADMAP ??
-    process.env.GOOGLE_GENERATIVE_AI_MODEL ??
-    process.env.GEMINI_MODEL ??
-    "gemini-3.1-pro";
+    process.env.GROQ_MODEL_ROADMAP ??
+    process.env.GROQ_MODEL ??
+    DEFAULT_GROQ_MODEL;
 
   try {
-    return await callGemini<GenerateRoadmapResult>(prompt, {
+    return await callGroq<GenerateRoadmapResult>(prompt, {
       temperature: 0.7,
       maxTokens: 6000,
       model: preferredModel,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    if (message.includes("not found") || message.includes("404")) {
-      return callGemini<GenerateRoadmapResult>(prompt, {
-        temperature: 0.7,
-        maxTokens: 6000,
-        model: DEFAULT_GEMINI_MODEL,
-      });
-    }
-    throw err;
+    return callGroq<GenerateRoadmapResult>(prompt, {
+      temperature: 0.7,
+      maxTokens: 6000,
+      model: DEFAULT_GROQ_MODEL,
+    });
   }
 }
 
@@ -348,12 +319,6 @@ Task:
 - Cover as many different roadmap topics as possible.
 - Do NOT generate MCQ or true/false questions.
 
-Strict output requirements:
-- Output MUST be valid JSON and nothing else (no markdown, no code fences, no commentary).
-- Use double quotes for all strings and keys.
-- Do NOT include trailing commas.
-- Do NOT include any extra keys or text outside the JSON object.
-
 Return ONLY this schema:
 {
   "questions": [
@@ -366,7 +331,7 @@ Return ONLY this schema:
 }
 `;
 
-  return callGemini<GenerateRoadmapReviewQuestionsResult>(prompt, {
+  return callGroq<GenerateRoadmapReviewQuestionsResult>(prompt, {
     temperature: 0.5,
     maxTokens: 5000,
   });
@@ -435,8 +400,96 @@ Return ONLY valid JSON matching this schema:
 }
 `;
 
-  return callGemini<GenerateInterviewQuestionsResult>(prompt, {
+  return callGroq<GenerateInterviewQuestionsResult>(prompt, {
     temperature: 0.7,
     maxTokens: 5000,
+  });
+}
+
+export interface EvaluateInterviewParams {
+  roleName: string;
+  experienceLevel: string;
+  questions: Array<{
+    evaluation_criteria: string[];
+  }>;
+  responses: Array<{
+    question_type: string;
+    question_text: string;
+    duration_seconds: number;
+    transcript: string;
+  }>;
+}
+
+export interface EvaluationResult {
+  responses: Array<{
+    question_index: number;
+    score: number;
+    strong_points: string[];
+    weak_points: string[];
+    feedback: string;
+  }>;
+  overall: {
+    score: number;
+    grade: "A" | "B+" | "B" | "C+" | "C" | "D";
+    summary: string;
+    strong_areas: string[];
+    weak_areas: string[];
+    recommendations: string[];
+  };
+}
+
+export async function evaluateInterview(
+  params: EvaluateInterviewParams,
+): Promise<EvaluationResult> {
+  const { roleName, experienceLevel, questions, responses } = params;
+
+  const answersContext = responses.map((r, i) => `
+Question ${i + 1} [${r.question_type}]: ${r.question_text}
+Evaluation criteria: ${(questions[i]?.evaluation_criteria || []).join(", ")}
+Candidate's answer (${r.duration_seconds}s): ${r.transcript || "No answer given"}
+`).join("\n---\n");
+
+  const prompt = `
+You are evaluating a technical interview for a ${experienceLevel} ${roleName}.
+
+${answersContext}
+
+For each question, provide:
+- A score from 0-100
+- 2-3 specific strong points from their answer
+- 2-3 specific weak points or things they missed
+- Brief personalised feedback
+
+Then provide an overall summary with:
+- Overall score (weighted average, system_design and technical worth more)
+- Top 3 strong areas
+- Top 3 weak areas  
+- 3 concrete recommendations to improve
+
+Return ONLY valid JSON:
+{
+  "responses": [
+    {
+      "question_index": 0,
+      "score": number,
+      "strong_points": ["string"],
+      "weak_points": ["string"],
+      "feedback": "string"
+    }
+  ],
+  "overall": {
+    "score": number,
+    "grade": "A" | "B+" | "B" | "C+" | "C" | "D",
+    "summary": "string",
+    "strong_areas": ["string"],
+    "weak_areas": ["string"],
+    "recommendations": ["string"]
+  }
+}
+`;
+
+  return callGroq<EvaluationResult>(prompt, {
+    temperature: 0.2, // Lower temperature for more objective evaluation
+    maxTokens: 6000,
   });
 }

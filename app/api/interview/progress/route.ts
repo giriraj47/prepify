@@ -1,4 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { 
+  advanceSessionProgress, 
+  completeInterviewSession, 
+  InterviewFeedback 
+} from "@/lib/supabase/server-services";
 
 export const runtime = "nodejs";
 
@@ -18,20 +23,25 @@ export async function PATCH(request: Request) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const updates: any = {
-      current_question_index: currentQuestionIndex,
-    };
-    if (elapsedSeconds !== undefined) updates.elapsed_seconds = elapsedSeconds;
-    if (status !== undefined) updates.status = status;
+    let result;
 
-    const { error: updateError } = await supabase
-      .from("interview_sessions")
-      .update(updates)
-      .eq("id", sessionId)
-      .eq("user_id", user.id);
+    if (status === "completed") {
+      result = await completeInterviewSession(
+        sessionId,
+        0, 
+        {} as Required<InterviewFeedback>,
+        elapsedSeconds ?? 0
+      );
+    } else {
+      result = await advanceSessionProgress(
+        sessionId,
+        currentQuestionIndex,
+        elapsedSeconds ?? 0
+      );
+    }
 
-    if (updateError) {
-      console.error("Progress Update Error:", updateError);
+    if (result.error) {
+      console.error("Progress Update Error:", result.error);
       return Response.json({ error: "Failed to update progress" }, { status: 500 });
     }
 

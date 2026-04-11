@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { upsertInterviewResponse } from "@/lib/supabase/server-services";
 
 export const runtime = "nodejs";
 
@@ -12,23 +13,21 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { sessionId, questionIndex, questionText, questionType, transcript, durationSeconds } = body;
+    const { sessionId, questionIndex, questionText, questionType, transcript, duration_seconds } = body;
 
     if (!sessionId || questionIndex === undefined || !questionText || !questionType) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const { error: upsertError } = await supabase
-      .from("interview_responses")
-      .upsert({
-        session_id: sessionId,
-        user_id: user.id,
-        question_index: questionIndex,
-        question_text: questionText,
-        question_type: questionType,
-        transcript: transcript,
-        duration_seconds: durationSeconds,
-      }, { onConflict: "session_id, question_index" });
+    const { error: upsertError } = await upsertInterviewResponse({
+      session_id: sessionId,
+      user_id: user.id,
+      question_index: questionIndex,
+      question_text: questionText,
+      question_type: questionType,
+      transcript: transcript,
+      duration_seconds: duration_seconds,
+    });
 
     if (upsertError) {
       console.error("Response Upsert Error:", upsertError);

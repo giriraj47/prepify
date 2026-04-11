@@ -25,6 +25,7 @@ export default function InterviewPage() {
         });
 
         const data = await res.json();
+        console.log("Start Interview API Response:", data);
         
         if (!res.ok) {
           throw new Error(data.error || "Failed to start interview.");
@@ -66,26 +67,31 @@ export default function InterviewPage() {
 
     try {
       // 1. Submit response
-      const resData = await fetch("/api/interview/response", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const responsePayload = {
           sessionId,
-          questionIndex: currentIndex,
+          questionIndex: currentQuestion.order_index,
           questionText: currentQuestion.question,
           questionType: currentQuestion.type,
           transcript: response,
-          durationSeconds: 0, // Could be tracked later
-        }),
+          duration_seconds: 0, // Placeholder
+      };
+      
+      const resVal = await fetch("/api/interview/response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(responsePayload),
       });
 
-      if (!resData.ok) {
-        console.error("Failed to submit response");
+      const resData = await resVal.json();
+      console.log("Submit Response API Result:", resData);
+
+      if (!resVal.ok) {
+        console.error("Failed to submit response", resData);
       }
 
       if (isLastQuestion) {
         // Update progress to completed
-        await fetch("/api/interview/progress", {
+        const completionRes = await fetch("/api/interview/progress", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -94,13 +100,15 @@ export default function InterviewPage() {
             status: "completed",
           }),
         });
+        const completionData = await completionRes.json();
+        console.log("Completion Progress API Result:", completionData);
 
         // Redirect or show a completion screen
-        router.push("/dashboard");
+        router.push(`/interview/result?sessionId=${sessionId}`);
       } else {
         // Move to next question
         const nextIndex = currentIndex + 1;
-        await fetch("/api/interview/progress", {
+        const progressRes = await fetch("/api/interview/progress", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -108,6 +116,8 @@ export default function InterviewPage() {
             currentQuestionIndex: nextIndex,
           }),
         });
+        const progressData = await progressRes.json();
+        console.log("Advance Progress API Result:", progressData);
 
         setCurrentIndex(nextIndex);
         setResponse(""); // Clear text area for next question
@@ -133,7 +143,7 @@ export default function InterviewPage() {
       <main className="min-h-screen bg-[#121315] px-6 py-20 text-white flex items-center justify-center">
         <div className="max-w-xl text-center">
           <p className="text-red-400 mb-4">{error}</p>
-          <button onClick={() => router.push("/dashboard")} className="px-4 py-2 bg-slate-800 rounded-lg">Return to Dashboard</button>
+          <button onClick={() => router.push("/")} className="px-4 py-2 bg-slate-800 rounded-lg">Return to Dashboard</button>
         </div>
       </main>
     );

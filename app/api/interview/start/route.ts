@@ -1,5 +1,12 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { generateInterviewQuestions } from "@/lib/gemini";
+import { 
+  getCachedInterviewPool, 
+  upsertInterviewQuestionPool, 
+  createInterviewSession,
+  PoolQuestion,
+} from "@/lib/supabase/server-services";
+import { ExperienceLevel } from "@/lib/supabase/services";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,91 +31,73 @@ export async function POST(request: Request) {
       return Response.json({ error: "Incomplete profile. Please configure your role and experience level." }, { status: 400 });
     }
 
-    const experienceLevel = profile.experience_level;
+    const experienceLevel = profile.experience_level as ExperienceLevel;
     const roleId = profile.role_id;
     const roleValue = Array.isArray(profile.role) ? profile.role[0] : profile.role;
     const roleName = roleValue?.name ?? "Software Engineer";
     const experienceYears = profile.experience_years ?? 3;
 
-    // 1. Check pool cache (7-day TTL)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // 1. Check pool cache (using centralized service - 24h TTL)
+    const { data: pool, error: poolFetchError } = await getCachedInterviewPool(roleId, experienceLevel);
 
-    let { data: pool } = await supabase
-      .from("interview_question_pools")
-      .select("*")
-      .eq("role_id", roleId)
-      .eq("experience_level", experienceLevel)
-      .gt("generated_at", sevenDaysAgo.toISOString())
-      .maybeSingle();
+    if (poolFetchError) {
+      console.error("Pool fetch error:", poolFetchError);
+    }
 
-    let questions = pool?.questions || [];
+    let questions: PoolQuestion[] = pool?.questions || [];
+    let poolId = pool?.id;
 
-    // 2. Generate questions if stale (1 AI call)
-    if (!pool || questions.length === 0) {
+    // 2. Generate questions if cache miss
+    if (questions.length === 0) {
+      console.log(`Cache miss for ${roleName}. Generating fresh questions...`);
       const generated = await generateInterviewQuestions({
         roleName,
         experienceLevel,
         experienceYears,
       });
 
-      questions = generated.questions as any;
+      questions = generated.questions as PoolQuestion[];
 
       if (!questions || questions.length === 0) {
         return Response.json({ error: "Failed to generate questions." }, { status: 500 });
       }
 
       // 3. Upsert pool
-      const { data: newPool, error: poolError } = await supabase
-        .from("interview_question_pools")
-        .upsert({
-          role_id: roleId,
-          experience_level: experienceLevel,
-          questions: questions,
-          generated_at: new Date().toISOString(),
-        }, { onConflict: "role_id, experience_level" })
-        .select()
-        .single();
+      const { data: newPool, error: poolUpsertError } = await upsertInterviewQuestionPool(
+        roleId, 
+        experienceLevel, 
+        questions
+      );
 
-      if (poolError) {
-        console.error("Pool Upsert Error:", poolError);
-        // Continue anyway to create session
+      if (poolUpsertError) {
+        console.error("Pool Upsert Error (Check RLS Policies):", poolUpsertError);
       } else {
-        pool = newPool;
+        poolId = newPool?.id;
       }
+    } else {
+      console.log(`Serving cached questions for ${roleName}.`);
     }
 
-    // 4. Create session (copy questions onto it)
-    const { data: session, error: sessionError } = await supabase
-      .from("interview_sessions")
-      .insert({
-        user_id: user.id,
-        pool_id: pool?.id ?? null,
-        role_id: roleId,
-        experience_level: experienceLevel,
-        questions: questions,
-        status: "in_progress",
-        current_question_index: 0,
-        elapsed_seconds: 0,
-      })
-      .select("id, questions")
-      .single();
+    // 4. Create session (stripping evaluation_criteria for the client)
+    const clientQuestions = questions.map(({ evaluation_criteria: _stripped, ...safe }) => safe);
+
+    const { data: session, error: sessionError } = await createInterviewSession({
+      user_id: user.id,
+      pool_id: poolId ?? null as any,
+      role_id: roleId,
+      experience_level: experienceLevel,
+      questions: clientQuestions,
+    });
 
     if (sessionError || !session) {
       console.error("Session creation error:", sessionError);
       return Response.json({ error: "Failed to create interview session." }, { status: 500 });
     }
 
-    // Remove evaluation_criteria before returning
-    const safeQuestions = (session.questions as any[]).map((q) => {
-      const { evaluation_criteria, ...safeQ } = q;
-      return safeQ;
-    });
-
     // 5. Return session_id + questions
     return Response.json({
       sessionId: session.id,
-      questions: safeQuestions,
+      questions: clientQuestions,
     });
   } catch (error) {
     console.error("Interview start error:", error);

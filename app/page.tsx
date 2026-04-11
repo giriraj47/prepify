@@ -165,3 +165,6 @@ export default function Home() {
   // Authenticated & onboarded → Dashboard
   return <Dashboard summary={summary} />;
 }
+
+
+

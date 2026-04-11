@@ -118,15 +118,23 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
 
           if (!user?.id || !roadmapId) return;
 
-          const { error } = await supabase.from("review_answers").upsert({
-            user_id: user.id,
-            roadmap_id: roadmapId,
-            answers: newAnswers,
-            submitted: false,
-          });
+          const { error } = await supabase.from("review_answers").upsert(
+            {
+              user_id: user.id,
+              roadmap_id: roadmapId,
+              answers: newAnswers,
+              submitted: false,
+            },
+            { onConflict: "user_id,roadmap_id" }
+          );
 
           if (error) {
-            console.error("Failed to sync to database:", error);
+            console.error("Failed to sync to database:", {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint,
+            });
             set({ syncStatus: "idle" });
           } else {
             set({ syncStatus: "synced" });

@@ -183,6 +183,12 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
         .eq("roadmap_id", get().roadmap?.id);
 
       if (error) {
+        console.error("Failed to update topic progress:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
         throw error;
       }
 

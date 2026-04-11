@@ -132,24 +132,59 @@ function RoadmapPageContent() {
     const supabase = (
       await import("@/lib/supabase/client")
     ).createSupabaseBrowserClient();
-    await supabase
+    const { error: updateError } = await supabase
       .from("roadmap_topics")
       .update({
         resources: updatedResources,
         status: completed ? "completed" : "in_progress",
-        completed_at: completed ? new Date().toISOString() : null,
       })
       .eq("id", topic.id);
+
+    if (updateError) {
+      console.error("Failed to update roadmap topic in DB:", updateError);
+      // Revert local state if DB update fails
+      setLocalTopics((prev) =>
+        prev.map((t) =>
+          t.id === topic.id
+            ? {
+                ...t,
+                resources: topic.resources,
+                status: topic.status,
+              }
+            : t
+        )
+      );
+      return;
+    }
+
+    // Clear local storage cache to force fresh fetch on reload
+    if (typeof window !== "undefined") {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+         const cacheKey = `prepai-roadmap:${user.id}:${selectedRoadmapId || "latest"}`;
+         localStorage.removeItem(cacheKey);
+      }
+    }
 
     // Update next topic if completed
     if (completed) {
       const idx = localTopics.findIndex((t) => t.id === topic.id);
       const nextTopic = localTopics[idx + 1];
       if (nextTopic && nextTopic.status === "locked") {
-        await supabase
+        const { error: nextError } = await supabase
           .from("roadmap_topics")
           .update({ status: "available" })
           .eq("id", nextTopic.id);
+        
+        if (nextError) {
+          console.error("Failed to unlock next roadmap topic:", nextError);
+          // Revert local state for the next topic
+          setLocalTopics((prev) =>
+            prev.map((t) =>
+              t.id === nextTopic.id ? { ...t, status: "locked" } : t,
+            ),
+          );
+        }
         setLocalTopics((prev) =>
           prev.map((t) =>
             t.id === nextTopic.id ? { ...t, status: "available" } : t,
