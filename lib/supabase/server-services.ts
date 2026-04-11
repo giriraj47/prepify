@@ -157,8 +157,12 @@ export async function submitReviewAnswers(roadmapId: string) {
 //   6.  Interview history (dashboard / results page)
 // ─────────────────────────────────────────────────────────────
 
-import type { Database } from "@/types/database";
-import type { ExperienceLevel, ServiceResult } from "@/lib/supabase-service";
+import type { ExperienceLevel } from "@/lib/supabase/services";
+
+export type ServiceResult<T> = {
+  data: T | null;
+  error: string | null;
+};
 
 // Use the existing server client factory
 
