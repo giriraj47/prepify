@@ -7,7 +7,8 @@ import {
   completeInterviewSession,
   buildEvaluationInput,
   PoolQuestion,
-  ClientInterviewQuestion
+  ClientInterviewQuestion,
+  InterviewResponse
 } from "@/lib/supabase/server-services";
 
 export const runtime = "nodejs";
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     // Save evaluation to DB
     await saveResponseEvaluations(sessionId, evaluation.responses);
 
-    const elapsedSeconds = responses.reduce((acc, r) => acc + (r.duration_seconds || 0), 0);
+    const elapsedSeconds = responses.reduce((acc: number, r: InterviewResponse) => acc + (r.duration_seconds || 0), 0);
     
     await completeInterviewSession(
       sessionId,
