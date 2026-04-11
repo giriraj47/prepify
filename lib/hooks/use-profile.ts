@@ -6,6 +6,7 @@ export function useProfile() {
     profile,
     loading,
     error,
+    initialized,
     loadProfile,
     saveProfile,
     updateProfile,
@@ -15,12 +16,12 @@ export function useProfile() {
   const { user } = useAuthStore();
 
   useEffect(() => {
-    if (user && !profile && !loading && !error) {
+    if (user && !profile && !loading && !error && !initialized) {
       loadProfile();
     }
-  }, [user, profile, loading, error, loadProfile]);
+  }, [user, profile, loading, error, initialized, loadProfile]);
 
-  const isProfileLoading = loading || (!!user && !profile && !error);
+  const isProfileLoading = loading || (!!user && !initialized && !error);
 
   return {
     profile,

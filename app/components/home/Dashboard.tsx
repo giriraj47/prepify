@@ -102,19 +102,37 @@ export function Dashboard({ summary }: DashboardProps) {
               >
                 {initials}
               </button>
-              <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity z-50">
-                <Link
-                  href="/onboarding"
-                  className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-t-xl"
-                >
-                  Edit Profile
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="block w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 rounded-b-xl cursor-pointer"
-                >
-                  Sign Out
-                </button>
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 z-50 overflow-hidden transform origin-top-right group-hover:translate-y-0 translate-y-2">
+                <div className="px-4 py-3.5 border-b border-gray-100 bg-gray-50/50">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Role</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">
+                        {profile?.roles?.name || "Candidate"}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Exp</p>
+                      <p className="text-sm font-bold text-[#2D3FE7]">
+                        {profile?.experience_level || "Any"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-1.5">
+                  <Link
+                    href="/onboarding"
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <span>👤</span> Edit Profile
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <span>🚪</span> Logout
+                  </button>
+                </div>
               </div>
             </div>
           </div>

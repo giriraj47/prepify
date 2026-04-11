@@ -13,7 +13,7 @@ type Question = {
   difficulty: "easy" | "medium" | "hard";
 };
 
-const QUESTION_COUNT = 5;
+const QUESTION_COUNT = 10;
 
 export default function StudyPage() {
   const router = useRouter();

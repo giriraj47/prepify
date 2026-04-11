@@ -29,7 +29,7 @@ async function fetchTenQuestions(params: {
   experienceLevel: string;
   experienceYears: number;
 }): Promise<AssessmentQuestion[]> {
-  const desiredCount = 5;
+  const desiredCount = 10;
   const maxAttempts = 3;
   const collected: AssessmentQuestion[] = [];
   const seen = new Set<string>();

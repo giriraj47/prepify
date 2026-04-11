@@ -20,7 +20,7 @@ interface ProfileState {
   loading: boolean;
   error: string | null;
 
-  // Actions
+  initialized: boolean;
   loadProfile: () => Promise<void>;
   saveProfile: (profileData: Partial<Profile>) => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
@@ -30,6 +30,7 @@ interface ProfileState {
 export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: null,
   loading: false,
+  initialized: false,
   error: null,
 
   loadProfile: async () => {
@@ -55,11 +56,13 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       set({
         profile: data,
         loading: false,
+        initialized: true,
         error: null,
       });
     } catch (error: any) {
       set({
         loading: false,
+        initialized: true,
         error: error.message || "Failed to load profile",
       });
     }
