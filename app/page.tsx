@@ -163,18 +163,9 @@ export default function Home() {
 
   // Authenticated but profile still loading
   if (profileLoading) {
-    return (
-      <div className="min-h-screen bg-[#f4f6fb] flex items-center justify-center">
-        <div className="flex items-center gap-3 text-indigo-600">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-current" />
-          <span className="text-sm font-medium tracking-wide">Loading Dashboard…</span>
-        </div>
-      </div>
-    );
+    return <span>Loading Dashboard…</span>;
   }
 
   // Authenticated & onboarded → Dashboard
   return <Dashboard summary={summary} latestRoadmapId={latestRoadmapId} />;
 }
-
-

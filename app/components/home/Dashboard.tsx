@@ -382,8 +382,8 @@ export function Dashboard({ summary, latestRoadmapId }: DashboardProps) {
               {[
                 { label: "Dashboard", href: "/", active: true },
                 { label: "My Roadmap", href: "/roadmap" },
-                { label: "Assessment", href: "/study" },
-                { label: "Resources", href: "#" },
+                { label: "Interview", href: "/interview" },
+                { label: "Resources", href: "/#" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link
