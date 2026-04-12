@@ -6,46 +6,27 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function normalizeRoleName(value: string | null): string {
-  if (!value) return "Frontend Developer";
-
-  const input = value.trim().toLowerCase();
-
-  if (input.includes("frontend")) return "Frontend Developer";
-  if (input.includes("backend")) return "Backend Developer";
-  if (input.includes("full") && input.includes("stack")) {
-    return "Full Stack Developer";
-  }
-  if (input.includes("devops") || input.includes("sre")) return "DevOps / SRE";
-  if (input.includes("qa") || input.includes("test")) return "QA / Test Engineer";
-
-  return value;
-}
-
 async function fetchTenQuestions(params: {
   roleName: string;
   experienceLevel: string;
   experienceYears: number;
 }): Promise<AssessmentQuestion[]> {
   const desiredCount = 10;
-  const maxAttempts = 4;
+  const maxAttempts = 3;
   const collected: AssessmentQuestion[] = [];
   const seen = new Set<string>();
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (collected.length >= desiredCount) break;
-
     const { questions } = await generateAssessmentQuestionsWithGroq(params);
     if (!Array.isArray(questions)) continue;
 
     for (const q of questions) {
       if (collected.length >= desiredCount) break;
-
       const text = q?.question_text?.trim();
       if (!text || seen.has(text)) continue;
       if (!Array.isArray(q.options) || q.options.length !== 4) continue;
       if (!["A", "B", "C", "D"].includes(q.correct_answer)) continue;
-
       seen.add(text);
       collected.push(q);
     }
@@ -65,35 +46,18 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const roleName = normalizeRoleName(
-      searchParams.get("roleName") ?? searchParams.get("role"),
-    );
-    const experienceLevel =
-      searchParams.get("experienceLevel") ??
-      searchParams.get("experience") ??
-      "mid";
-    const parsedYears = Number(
-      searchParams.get("experienceYears") ?? searchParams.get("years") ?? 3,
-    );
-    const experienceYears = Number.isFinite(parsedYears) ? parsedYears : 3;
+    const roleName = searchParams.get("roleName") ?? "Frontend Developer";
+    const experienceLevel = searchParams.get("experienceLevel") ?? "mid";
+    const experienceYears = Number(searchParams.get("experienceYears") ?? 3);
 
     const questions = await fetchTenQuestions({
       roleName,
       experienceLevel,
-      experienceYears,
+      experienceYears: Number.isFinite(experienceYears) ? experienceYears : 3,
     });
 
     return Response.json(
-      {
-        questions,
-        meta: {
-          source: "groq",
-          generatedAt: new Date().toISOString(),
-          roleName,
-          experienceLevel,
-          experienceYears,
-        },
-      },
+      { questions },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",

@@ -251,18 +251,6 @@ export default function StudyPage() {
   return (
     <div className="min-h-screen bg-[#0d0f1a] px-6 py-16 text-white">
       <div className="mx-auto w-full max-w-5xl space-y-10">
-        {/* <div className="rounded-3xl border border-emerald-400/20 bg-slate-950 p-8 shadow-2xl">
-          <p className="text-xs uppercase tracking-[0.3em] text-emerald-200/80">
-            Deep Focus
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold">Study</h1>
-          <p className="mt-4 text-lg text-emerald-50/80">
-            Build fundamentals with curated materials, spaced repetition, and
-            deliberate practice. This is a static placeholder page you can extend
-            with your study plan.
-          </p>
-        </div> */}
-
         <div className="rounded-3xl border border-gray-800 bg-[#0f1424] p-8 shadow-xl">
           <div className="flex items-center justify-between">
             <div>
@@ -511,42 +499,6 @@ export default function StudyPage() {
             </>
           )}
         </div>
-
-        {/* <div className="rounded-3xl border border-amber-400/20 bg-slate-950 p-8 shadow-2xl">
-          <h2 className="text-2xl font-semibold">Recommended Roadmap</h2>
-          <p className="mt-2 text-sm text-amber-100/70">
-            Static roadmap for now — AI-generated roadmap coming next.
-          </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-200/80">
-                Week 1–2
-              </p>
-              <h3 className="mt-2 text-lg font-semibold">Core JS</h3>
-              <p className="mt-2 text-sm text-amber-50/80">
-                Variables, closures, async patterns, and DOM basics.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-200/80">
-                Week 3–4
-              </p>
-              <h3 className="mt-2 text-lg font-semibold">React Foundations</h3>
-              <p className="mt-2 text-sm text-amber-50/80">
-                Hooks, component patterns, state management.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-200/80">
-                Week 5–6
-              </p>
-              <h3 className="mt-2 text-lg font-semibold">System & APIs</h3>
-              <p className="mt-2 text-sm text-amber-50/80">
-                REST basics, performance, and architecture drills.
-              </p>
-            </div>
-          </div>
-        </div> */}
       </div>
     </div>
   );
