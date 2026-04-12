@@ -81,8 +81,8 @@ const CSS = `
     line-height: 1.05;
     letter-spacing: -0.01em;
     text-transform: uppercase;
-    color: #fff;
-    max-width: 80%;
+    color: #cdcdcd;
+    max-width: 100%;
     margin-bottom: 1.4rem;
   }
 
@@ -315,7 +315,7 @@ const CSS = `
   .rm-resource-title--done { color: rgba(74,222,128,0.5); text-decoration: line-through; }
 
   .rm-resource-type {
-    font-size: 0.5rem;
+    font-size: 0.6rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: rgba(255,255,255,0.15);
@@ -327,7 +327,7 @@ const CSS = `
     font-size: 0.5rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.8);
     text-decoration: none;
     flex-shrink: 0;
     transition: color 0.15s;

@@ -3,235 +3,635 @@
 import Link from "next/link";
 import { useState } from "react";
 
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  .lp-root {
+    min-height: 100vh;
+    background: #000;
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .lp-glow {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 70% 55% at 60% 42%, rgba(10,62,55,0.5) 0%, rgba(5,28,26,0.26) 40%, transparent 68%),
+      radial-gradient(ellipse 30% 20% at 15% 70%, rgba(4,22,35,0.3) 0%, transparent 55%);
+  }
+
+  /* ── NAV ── */
+  .lp-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.6rem 5vw;
+    border-bottom: 0.5px solid transparent;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .lp-nav--scrolled {
+    border-color: rgba(255,255,255,0.07);
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(14px);
+  }
+
+  .lp-logo {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #fff;
+    text-decoration: none;
+  }
+
+  .lp-nav-links {
+    display: flex; align-items: center; gap: 2.5rem;
+    list-style: none;
+  }
+  .lp-nav-links a {
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .lp-nav-links a:hover { color: rgba(255,255,255,0.8); }
+
+  .lp-nav-actions { display: flex; align-items: center; gap: 1.2rem; }
+
+  .lp-nav-login {
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .lp-nav-login:hover { color: rgba(255,255,255,0.8); }
+
+  .lp-nav-cta {
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+    border: 0.5px solid rgba(255,255,255,0.2);
+    padding: 0.5rem 1.2rem;
+    transition: all 0.15s;
+  }
+  .lp-nav-cta:hover { color: #fff; border-color: rgba(255,255,255,0.6); }
+
+  /* Mobile */
+  .lp-burger {
+    display: none;
+    flex-direction: column; gap: 4px;
+    background: none; border: none; cursor: pointer; padding: 4px;
+  }
+  .lp-burger span { display: block; width: 20px; height: 0.5px; background: rgba(255,255,255,0.5); }
+
+  /* ── HERO ── */
+  .lp-hero {
+    position: relative; z-index: 1;
+    padding: 20vh 5vw 14vh;
+    display: flex; flex-direction: column;
+    max-width: 1100px;
+  }
+
+  .lp-hero-eyebrow {
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 1.8rem;
+    animation: lpFadeUp 0.5s ease both;
+  }
+
+  .lp-hero-title {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.6rem, 7.5vw, 6.5rem);
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    color: #fff;
+    max-width: 18ch;
+    margin-bottom: 2.5rem;
+    animation: lpFadeUp 0.5s 0.05s ease both;
+  }
+
+  .lp-hero-title em {
+    font-style: normal;
+    color: rgba(255,255,255,0.25);
+  }
+
+  .lp-hero-sub {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.3);
+    max-width: 46ch;
+    line-height: 1.9;
+    margin-bottom: 3rem;
+    animation: lpFadeUp 0.5s 0.1s ease both;
+  }
+
+  .lp-hero-actions {
+    display: flex; align-items: center; gap: 1.4rem;
+    animation: lpFadeUp 0.5s 0.15s ease both;
+  }
+
+  .lp-btn-primary {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(74,222,128,0.9);
+    border: 0.5px solid rgba(74,222,128,0.35);
+    background: none;
+    padding: 0.75rem 1.8rem;
+    text-decoration: none;
+    transition: all 0.15s;
+    display: inline-block;
+  }
+  .lp-btn-primary:hover { color: #4ade80; border-color: rgba(74,222,128,0.7); }
+
+  .lp-btn-ghost {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    border: 0.5px solid rgba(255,255,255,0.12);
+    background: none;
+    padding: 0.75rem 1.8rem;
+    text-decoration: none;
+    transition: all 0.15s;
+    display: inline-block;
+  }
+  .lp-btn-ghost:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.35); }
+
+  /* ── STATS ── */
+  .lp-stats {
+    position: relative; z-index: 1;
+    display: flex; gap: 0;
+    border-top: 0.5px solid rgba(255,255,255,0.07);
+    border-bottom: 0.5px solid rgba(255,255,255,0.07);
+    animation: lpFadeUp 0.5s 0.2s ease both;
+  }
+
+  .lp-stat {
+    flex: 1;
+    padding: 2.8rem 5vw;
+    border-right: 0.5px solid rgba(255,255,255,0.07);
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .lp-stat:last-child { border-right: none; }
+
+  .lp-stat-value {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.8rem, 3.5vw, 3rem);
+    color: #fff;
+    line-height: 1;
+  }
+  .lp-stat-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* ── SECTION WRAPPER ── */
+  .lp-section {
+    position: relative; z-index: 1;
+    padding: 10vh 5vw;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .lp-section-eyebrow {
+    font-size: 0.52rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+    margin-bottom: 3.5rem;
+  }
+
+  .lp-section-title {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.8rem, 4vw, 3.2rem);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    color: #fff;
+    max-width: 20ch;
+    line-height: 1.05;
+    margin-bottom: 4rem;
+  }
+
+  /* ── STEPS ── */
+  .lp-steps {
+    display: flex; flex-direction: column; gap: 0;
+  }
+
+  .lp-step {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: 0 2rem;
+    padding: 2rem 0;
+    border-bottom: 0.5px solid rgba(255,255,255,0.06);
+    transition: background 0.2s;
+    cursor: default;
+  }
+  .lp-step:first-child { border-top: 0.5px solid rgba(255,255,255,0.06); }
+  .lp-step:hover .lp-step-title { color: #fff; }
+
+  .lp-step-num {
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+    color: rgba(255,255,255,0.2);
+    padding-top: 0.1rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .lp-step-title {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: clamp(1rem, 2vw, 1.4rem);
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 0.5rem;
+    transition: color 0.15s;
+  }
+
+  .lp-step-desc {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.25);
+    line-height: 1.8;
+    max-width: 52ch;
+  }
+
+  /* ── FEATURES ── */
+  .lp-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0;
+    border: 0.5px solid rgba(255,255,255,0.07);
+  }
+
+  .lp-feature {
+    padding: 3rem 2.5rem;
+    border-right: 0.5px solid rgba(255,255,255,0.07);
+    border-bottom: 0.5px solid rgba(255,255,255,0.07);
+    transition: background 0.2s;
+  }
+  .lp-feature:hover { background: rgba(255,255,255,0.02); }
+
+  .lp-feature-key {
+    font-size: 0.52rem;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.18);
+    margin-bottom: 1.4rem;
+    display: block;
+  }
+
+  .lp-feature-title {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.75);
+    margin-bottom: 0.7rem;
+    line-height: 1.1;
+  }
+
+  .lp-feature-desc {
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.25);
+    line-height: 1.85;
+  }
+
+  /* ── CTA BAND ── */
+  .lp-cta-band {
+    position: relative; z-index: 1;
+    padding: 10vh 5vw;
+    border-top: 0.5px solid rgba(255,255,255,0.07);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .lp-cta-band-title {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2rem, 5vw, 4rem);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    color: #fff;
+    max-width: 18ch;
+    line-height: 1.05;
+  }
+  .lp-cta-band-title em { font-style: normal; color: rgba(255,255,255,0.25); }
+
+  /* ── FOOTER ── */
+  .lp-footer {
+    position: relative; z-index: 1;
+    padding: 2rem 5vw;
+    border-top: 0.5px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .lp-footer p {
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.15);
+  }
+
+  /* Mobile drawer */
+  .lp-mobile-menu {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; width: 100%;
+    background: #000;
+    z-index: 200;
+    display: flex; flex-direction: column;
+    padding: 5vh 5vw;
+    animation: lpSlideIn 0.25s ease both;
+  }
+  .lp-mobile-close {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(255,255,255,0.3); align-self: flex-end; margin-bottom: 4rem;
+    transition: color 0.15s;
+  }
+  .lp-mobile-close:hover { color: #fff; }
+
+  .lp-mobile-links {
+    display: flex; flex-direction: column; gap: 2rem; flex: 1;
+  }
+  .lp-mobile-links a {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    font-size: 2rem;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .lp-mobile-links a:hover { color: #fff; }
+
+  @keyframes lpFadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lpSlideIn {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+  }
+
+  @media (max-width: 640px) {
+    .lp-nav-links, .lp-nav-actions { display: none; }
+    .lp-burger { display: flex; }
+    .lp-stats { flex-direction: column; }
+    .lp-stat { border-right: none; border-bottom: 0.5px solid rgba(255,255,255,0.07); }
+    .lp-features { grid-template-columns: 1fr; }
+    .lp-cta-band { flex-direction: column; align-items: flex-start; }
+    .lp-footer { flex-direction: column; }
+  }
+`;
+
 const features = [
   {
-    icon: "🧠",
+    key: "A",
     title: "AI-Powered Assessments",
-    desc: "Get personalized questions based on your role, experience, and weak areas.",
+    desc: "Role-specific questions calibrated to your experience level and target companies.",
   },
   {
-    icon: "🗺️",
+    key: "B",
     title: "Intelligent Roadmaps",
-    desc: "A dynamic study plan that adapts as you improve — no generic prep plans.",
+    desc: "A dynamic study plan that locks onto weak areas first and adapts as you improve.",
   },
   {
-    icon: "🎤",
+    key: "C",
     title: "Mock Interviews",
-    desc: "Simulate real interview conditions with AI feedback on your answers.",
+    desc: "Simulate real interview conditions with instant AI feedback on every answer.",
   },
-];
-
-const stats = [
-  { value: "50k+", label: "Candidates Prepared" },
-  { value: "92%", label: "Satisfaction Rate" },
-  { value: "1,200+", label: "Daily Challenges Completed" },
 ];
 
 const navLinks = ["Roadmap", "Practice", "Assessments", "Resources"];
+const stats = [
+  { value: "50k+", label: "Candidates Prepared" },
+  { value: "92%", label: "Satisfaction Rate" },
+  { value: "1,200+", label: "Daily Challenges" },
+];
 
 export function LandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  if (typeof window !== "undefined") {
+    window.onscroll = () => setScrolled(window.scrollY > 20);
+  }
 
   return (
-    <div className="min-h-screen bg-[#f0f2fa] font-sans">
-      {/* ── NAV ───────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-[#f0f2fa]/90 backdrop-blur-md border-b border-indigo-100">
-        <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
-          <span className="text-[#1a2bcc] font-extrabold text-xl tracking-tight select-none">
+    <>
+      <style>{CSS}</style>
+      <div className="lp-root">
+        <div className="lp-glow" />
+
+        {/* Nav */}
+        <nav className={`lp-nav ${scrolled ? "lp-nav--scrolled" : ""}`}>
+          <Link href="/" className="lp-logo">
             Prepify
-          </span>
-
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6">
+          </Link>
+          <ul className="lp-nav-links">
             {navLinks.map((l) => (
-              <a
-                key={l}
-                href="#"
-                className="text-sm font-medium text-gray-500 hover:text-[#1a2bcc] transition-colors"
-              >
-                {l}
-              </a>
+              <li key={l}>
+                <a href="#">{l}</a>
+              </li>
             ))}
-          </nav>
-
-          <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-sm font-semibold text-gray-700 hover:text-[#1a2bcc] transition-colors px-2 py-1"
-            >
+          </ul>
+          <div className="lp-nav-actions">
+            <Link href="/login" className="lp-nav-login">
               Log In
             </Link>
-            <Link
-              href="/login"
-              className="bg-[#1a2bcc] hover:bg-[#1420a8] text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors shadow-md shadow-indigo-200"
-            >
-              Get Started
+            <Link href="/login" className="lp-nav-cta">
+              Get Started →
             </Link>
           </div>
-
-          {/* Mobile burger */}
           <button
-            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-indigo-50"
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label="Toggle menu"
+            className="lp-burger"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
           >
-            <span className="block w-5 h-0.5 bg-current mb-1" />
-            <span className="block w-5 h-0.5 bg-current mb-1" />
-            <span className="block w-5 h-0.5 bg-current" />
+            <span />
+            <span />
+            <span />
           </button>
-        </div>
+        </nav>
 
+        {/* Mobile menu */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-indigo-100 bg-white px-6 py-4 space-y-3">
-            {navLinks.map((l) => (
-              <a key={l} href="#" className="block text-sm font-medium text-gray-600 hover:text-[#1a2bcc]">
-                {l}
-              </a>
-            ))}
-            <div className="pt-2 flex flex-col gap-2">
-              <Link href="/login" className="text-sm text-center font-semibold text-gray-700 hover:text-[#1a2bcc]">
+          <div className="lp-mobile-menu">
+            <button
+              className="lp-mobile-close"
+              onClick={() => setMobileOpen(false)}
+            >
+              Close ×
+            </button>
+            <div className="lp-mobile-links">
+              {navLinks.map((l) => (
+                <a key={l} href="#" onClick={() => setMobileOpen(false)}>
+                  {l}
+                </a>
+              ))}
+              <Link href="/login" onClick={() => setMobileOpen(false)}>
                 Log In
               </Link>
-              <Link
-                href="/login"
-                className="text-sm text-center bg-[#1a2bcc] text-white font-bold px-5 py-2.5 rounded-xl"
-              >
+              <Link href="/login" onClick={() => setMobileOpen(false)}>
                 Get Started
               </Link>
             </div>
           </div>
         )}
-      </header>
 
-      {/* ── HERO ──────────────────────────────────────────── */}
-      <section className="mx-auto max-w-4xl px-6 text-center pt-24 pb-20">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-[#2feecb]/20 border border-[#2feecb]/40 text-[#0a6657] text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-8">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#0a6657] inline-block" />
-          The Future of Prep
-        </div>
+        {/* Hero */}
+        <section className="lp-hero">
+          <p className="lp-hero-eyebrow">Technical Interview Preparation</p>
+          <h1 className="lp-hero-title">
+            Master Your Next
+            <br />
+            <em>Technical</em>
+            <br />
+            Interview
+          </h1>
+          <p className="lp-hero-sub">
+            AI assesses your engineering profile, identifies every gap, and
+            builds a bespoke roadmap that adapts in real time as you improve.
+          </p>
+          <div className="lp-hero-actions">
+            <Link href="/login" className="lp-btn-primary">
+              Start Assessment →
+            </Link>
+            <Link href="/login" className="lp-btn-ghost">
+              Mock Interview
+            </Link>
+          </div>
+        </section>
 
-        <h1 className="text-5xl md:text-7xl font-extrabold text-[#0e1135] leading-tight tracking-tight mb-6">
-          Master Your Technical<br className="hidden md:block" /> Interviews with AI
-        </h1>
-        <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-          Our platform assesses your unique engineering profile to identify weak points
-          and builds a bespoke, intelligent roadmap to get you hired at top-tier firms.
-        </p>
-
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/login"
-            id="cta-start-assessment"
-            className="bg-[#1a2bcc] hover:bg-[#1420a8] text-white font-bold px-8 py-4 rounded-2xl transition-all text-base shadow-xl shadow-indigo-300/40 hover:scale-105 active:scale-95"
-          >
-            Start Your Assessment
-          </Link>
-          <Link
-            href="/login"
-            id="cta-mock-interview"
-            className="bg-white hover:bg-indigo-50 text-gray-800 font-bold px-8 py-4 rounded-2xl transition-all text-base border border-gray-200 shadow-sm hover:border-indigo-300"
-          >
-            Mock Interview
-          </Link>
-        </div>
-
-        {/* Social proof */}
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-8">
+        {/* Stats */}
+        <div className="lp-stats" style={{ position: "relative", zIndex: 1 }}>
           {stats.map((s) => (
-            <div key={s.label} className="text-center">
-              <p className="text-2xl font-extrabold text-[#1a2bcc]">{s.value}</p>
-              <p className="text-xs text-gray-400 font-medium mt-0.5">{s.label}</p>
+            <div key={s.label} className="lp-stat">
+              <span className="lp-stat-value">{s.value}</span>
+              <span className="lp-stat-label">{s.label}</span>
             </div>
           ))}
         </div>
-      </section>
 
-      {/* ── HOW IT WORKS ──────────────────────────────────── */}
-      <section className="bg-white py-20 border-y border-indigo-100">
-        <div className="mx-auto max-w-7xl px-6">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#1a2bcc] text-center mb-3">
-            How It Works
-          </p>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0e1135] text-center mb-14">
-            Three steps to interview mastery
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* How it works */}
+        <div className="lp-section">
+          <p className="lp-section-eyebrow">How It Works</p>
+          <h2 className="lp-section-title">Three Steps to Interview Mastery</h2>
+          <div className="lp-steps">
             {[
               {
-                step: "01",
+                n: "01",
                 title: "Create Your Profile",
-                desc: "Tell us your role, experience level, and target companies. Takes 2 minutes.",
+                desc: "Tell us your role, years of experience, and target companies. Two minutes. That's it.",
               },
               {
-                step: "02",
+                n: "02",
                 title: "Get Your Roadmap",
-                desc: "Our AI maps out exactly what you need to study based on your profile and gaps.",
+                desc: "Our AI maps exactly what you need to study based on your profile, gaps, and blind spots.",
               },
               {
-                step: "03",
+                n: "03",
                 title: "Practice & Improve",
-                desc: "Daily challenges, mock interviews, and AI feedback accelerate your progress.",
+                desc: "Daily challenges, mock interviews, and AI feedback accelerate progress toward your offer.",
               },
-            ].map((item) => (
-              <div
-                key={item.step}
-                className="relative p-8 rounded-2xl border border-indigo-100 bg-[#f8f9fe] hover:border-indigo-300 hover:shadow-md transition-all"
-              >
-                <p className="text-5xl font-extrabold text-indigo-100 mb-4 select-none">{item.step}</p>
-                <h3 className="text-lg font-bold text-[#0e1135] mb-2">{item.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
+            ].map((s) => (
+              <div key={s.n} className="lp-step">
+                <span className="lp-step-num">{s.n}</span>
+                <div>
+                  <p className="lp-step-title">{s.title}</p>
+                  <p className="lp-step-desc">{s.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ── FEATURES ──────────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-6 py-20">
-        <p className="text-xs font-bold uppercase tracking-widest text-[#1a2bcc] text-center mb-3">
-          Features
-        </p>
-        <h2 className="text-3xl md:text-4xl font-extrabold text-[#0e1135] text-center mb-14">
-          Everything you need to land the job
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all group"
-            >
-              <div className="text-4xl mb-4">{f.icon}</div>
-              <h3 className="font-bold text-[#0e1135] text-lg mb-2 group-hover:text-[#1a2bcc] transition-colors">
-                {f.title}
-              </h3>
-              <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
-            </div>
-          ))}
+        {/* Features */}
+        <div className="lp-section" style={{ paddingTop: 0 }}>
+          <p className="lp-section-eyebrow">Features</p>
+          <h2 className="lp-section-title">
+            Everything You Need to Land the Job
+          </h2>
+          <div className="lp-features">
+            {features.map((f) => (
+              <div key={f.key} className="lp-feature">
+                <span className="lp-feature-key">{f.key}</span>
+                <p className="lp-feature-title">{f.title}</p>
+                <p className="lp-feature-desc">{f.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </section>
 
-      {/* ── CTA BANNER ────────────────────────────────────── */}
-      <section className="bg-[#1a2bcc] py-20 text-center px-6">
-        <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
-          Ready to ace your next interview?
-        </h2>
-        <p className="text-indigo-200 mb-8 text-base max-w-xl mx-auto">
-          Join 50,000+ engineers who used Prepify to land roles at Google, Meta, and more.
-        </p>
-        <Link
-          href="/login"
-          id="cta-banner-get-started"
-          className="inline-block bg-white text-[#1a2bcc] font-extrabold px-8 py-4 rounded-2xl hover:bg-indigo-50 transition-all text-base shadow-xl hover:scale-105 active:scale-95"
-        >
-          Get Started — It&apos;s Free
-        </Link>
-      </section>
+        {/* CTA Band */}
+        <div className="lp-cta-band">
+          <h2 className="lp-cta-band-title">
+            Ready to Ace
+            <br />
+            <em>Your Next</em>
+            <br />
+            Interview?
+          </h2>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.8rem",
+              alignItems: "flex-start",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.58rem",
+                letterSpacing: "0.12em",
+                color: "rgba(255,255,255,0.2)",
+                textTransform: "uppercase",
+                marginBottom: "0.8rem",
+              }}
+            >
+              Join 50,000+ engineers — Google, Meta, and more.
+            </p>
+            <Link href="/login" className="lp-btn-primary">
+              Get Started — It&apos;s Free →
+            </Link>
+          </div>
+        </div>
 
-      {/* ── FOOTER ────────────────────────────────────────── */}
-      <footer className="bg-[#0e1135] text-gray-400 text-sm text-center py-8">
-        <p>© 2026 Prepify. Built for engineers, by engineers.</p>
-      </footer>
-    </div>
+        {/* Footer */}
+        <footer className="lp-footer">
+          <p>© 2026 Prepify. Built for engineers, by engineers.</p>
+          <p style={{ color: "rgba(255,255,255,0.08)" }}>
+            Assessment · Roadmap · Practice
+          </p>
+        </footer>
+      </div>
+    </>
   );
 }
