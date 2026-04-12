@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -39,7 +39,6 @@ export default function StudyPage() {
   const [roadmapLoading, setRoadmapLoading] = useState(false);
   const [roadmapError, setRoadmapError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const weakTopics = topicSummary
     .filter((t) => t.correct / t.total < 0.6)
@@ -157,54 +156,14 @@ export default function StudyPage() {
   const questionCountText = mounted
     ? `${QUESTION_COUNT} AI-generated questions to assess your baseline.`
     : "AI-generated questions to assess your baseline.";
-
-  const codeFontStyle = {
-    fontFamily:
-      '"Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-  };
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const handle = () => {
-      const width = el.clientWidth || 1;
-      const idx = Math.round(el.scrollLeft / width);
-      setCurrentIndex(Math.min(Math.max(idx, 0), questions.length - 1));
-    };
-    el.addEventListener("scroll", handle, { passive: true });
-    handle();
-    return () => el.removeEventListener("scroll", handle);
-  }, [questions.length]);
-
-  function scrollToIndex(index: number) {
-    const el = scrollRef.current;
-    if (!el) return;
-    const width = el.clientWidth;
-    el.scrollTo({ left: width * index, behavior: "smooth" });
-  }
-
-  function handlePrevCard() {
-    scrollToIndex(Math.max(currentIndex - 1, 0));
-  }
-
-  function handleNextCard() {
-    scrollToIndex(Math.min(currentIndex + 1, questions.length - 1));
-  }
-
-  function splitQuestionText(text: string): {
-    pre: string;
-    code: string | null;
-    post: string;
-  } {
-    const match = text.match(/```([\s\S]*?)```/);
-    if (!match || match.index === undefined) {
-      return { pre: text, code: null, post: "" };
-    }
-    const pre = text.slice(0, match.index).trimEnd();
-    const code = match[1].trim();
-    const post = text.slice(match.index + match[0].length).trimStart();
-    return { pre, code, post };
-  }
+  const currentQuestion = questions[currentIndex];
+  const currentProgress = questions.length
+    ? (currentIndex + 1) / questions.length
+    : 0;
+  const progressRadius = 28;
+  const progressCircumference = 2 * Math.PI * progressRadius;
+  const progressOffset =
+    progressCircumference * (1 - Math.min(Math.max(currentProgress, 0), 1));
 
   async function handleGenerateRoadmap() {
     setRoadmapLoading(true);
@@ -328,142 +287,130 @@ export default function StudyPage() {
                 </div>
               )}
 
-              <div className="relative mt-6">
-                <div
-                  ref={scrollRef}
-                  className="flex items-start snap-x snap-mandatory overflow-x-auto scroll-smooth rounded-3xl border border-gray-800 bg-slate-950/40"
-                >
-                  {questions.map((question, index) => (
-                    <div
-                      key={`${question.topic}-${index}`}
-                      className="min-w-full self-start snap-center px-6 py-8 md:px-12 md:py-12"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div
-                          className="whitespace-pre-wrap text-base"
-                          style={codeFontStyle}
-                        >
-                          <span className="mr-2 text-emerald-300/80">
-                            {index + 1}.
-                          </span>
-                          {(() => {
-                            const { pre, code, post } = splitQuestionText(
-                              question.question_text,
-                            );
-                            return (
-                              <div className="space-y-3">
-                                {pre && <p className="text-gray-200">{pre}</p>}
-                                {code && (
-                                  <div className="overflow-hidden rounded-xl border border-emerald-400/30 bg-[#0c101d] shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
-                                    <div className="flex items-center justify-between border-b border-emerald-400/20 bg-[#0f1424] px-4 py-2 text-[10px] uppercase tracking-[0.3em] text-emerald-200/70">
-                                      <span>Code</span>
-                                      <span className="text-emerald-300/50">
-                                        js
-                                      </span>
-                                    </div>
-                                    <pre className="whitespace-pre-wrap px-4 py-3 text-xs text-emerald-50/90">
-                                      <code>{code}</code>
-                                    </pre>
-                                  </div>
-                                )}
-                                {post && (
-                                  <p className="text-gray-200">{post}</p>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
-                          {question.difficulty}
-                        </span>
-                      </div>
-                      <div
-                        className="mt-5 grid gap-3 text-sm text-gray-300"
-                        style={codeFontStyle}
-                      >
-                        {question.options.map((option) => {
-                          const isSelected = selected[index] === option.key;
-                          const isCorrect =
-                            option.key === question.correct_answer;
-                          const showResult = submitted;
-                          return (
-                            <button
-                              key={`${question.topic}-${index}-${option.key}`}
-                              onClick={() => handleSelect(index, option.key)}
-                              className={[
-                                "rounded-lg border px-4 py-3 text-left transition",
-                                showResult
-                                  ? isCorrect
-                                    ? "border-emerald-400/60 bg-emerald-500/10 text-emerald-100"
-                                    : isSelected
-                                      ? "border-red-400/50 bg-red-500/10 text-red-100"
-                                      : "border-gray-800 bg-slate-950/70 text-gray-300"
-                                  : isSelected
-                                    ? "border-emerald-400/60 bg-emerald-500/10 text-emerald-100"
-                                    : "border-gray-800 bg-slate-950/70 text-gray-300 hover:border-gray-700",
-                              ].join(" ")}
-                              disabled={submitted}
-                            >
-                              <span className="mr-2 text-emerald-300/80">
-                                {option.key}.
-                              </span>
-                              <span className="whitespace-pre-wrap">
-                                {option.text}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {submitted && (
-                        <p className="mt-4 text-xs text-emerald-100/70">
-                          Correct answer:{" "}
-                          <span className="font-semibold text-emerald-200">
-                            {question.correct_answer}
-                          </span>
-                          {question.explanation
-                            ? ` — ${question.explanation}`
-                            : ""}
-                        </p>
-                      )}
-
-                      {index === questions.length - 1 && (
-                        <div className="mt-8 flex items-center justify-between">
-                          <p className="text-xs text-gray-400">
-                            {answeredCount}/{questions.length} answered
-                          </p>
-                          <button
-                            onClick={handleSubmit}
-                            disabled={!allAnswered || submitted}
-                            className={[
-                              "rounded-xl px-5 py-2 text-sm font-semibold transition",
-                              !allAnswered || submitted
-                                ? "cursor-not-allowed border border-gray-800 bg-slate-950/60 text-gray-500"
-                                : "border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30",
-                            ].join(" ")}
-                          >
-                            {submitted ? "Submitted" : "Complete assessment"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              <div className="relative mt-6 min-h-[560px] rounded-3xl border border-gray-800 bg-[#080b14] p-6 md:p-10">
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-gray-500">
+                    Question {currentIndex + 1} of {questions.length}
+                  </p>
+                  <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-gray-400">
+                    {currentQuestion?.difficulty}
+                  </span>
                 </div>
 
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
+                <p className="mt-6 max-w-4xl text-2xl font-semibold uppercase leading-tight text-white md:text-4xl">
+                  {currentQuestion?.question_text}
+                </p>
+
+                <div className="mx-auto mt-16 flex max-w-3xl flex-col gap-3">
+                  {currentQuestion?.options.map((option) => {
+                    const isSelected = selected[currentIndex] === option.key;
+                    const isCorrect = option.key === currentQuestion.correct_answer;
+                    const showResult = submitted;
+
+                    return (
+                      <button
+                        key={`${currentQuestion.topic}-${currentIndex}-${option.key}`}
+                        onClick={() => handleSelect(currentIndex, option.key)}
+                        disabled={submitted}
+                        className={[
+                          "flex items-center gap-4 border-b border-transparent px-2 py-3 text-left text-sm uppercase tracking-[0.12em] transition",
+                          showResult
+                            ? isCorrect
+                              ? "text-emerald-200"
+                              : isSelected
+                                ? "text-red-200"
+                                : "text-gray-400"
+                            : isSelected
+                              ? "text-white"
+                              : "text-gray-300 hover:text-white",
+                        ].join(" ")}
+                      >
+                        <span className="w-6 shrink-0 text-[11px] text-gray-500">
+                          {option.key}
+                        </span>
+                        <span>{option.text}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {submitted && currentQuestion && (
+                  <p className="mx-auto mt-8 max-w-3xl text-xs text-emerald-100/70">
+                    Correct answer:{" "}
+                    <span className="font-semibold text-emerald-200">
+                      {currentQuestion.correct_answer}
+                    </span>
+                    {currentQuestion.explanation
+                      ? ` — ${currentQuestion.explanation}`
+                      : ""}
+                  </p>
+                )}
+
+                <div className="mt-12 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentIndex((idx) => Math.max(idx - 1, 0))}
+                      disabled={currentIndex === 0}
+                      className="rounded-md border border-gray-700 px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentIndex((idx) =>
+                          Math.min(idx + 1, questions.length - 1),
+                        )
+                      }
+                      disabled={currentIndex === questions.length - 1}
+                      className="rounded-md border border-gray-700 px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+
                   <button
-                    onClick={handlePrevCard}
-                    className="pointer-events-auto rounded-full border border-emerald-400/30 bg-slate-950/80 p-2 text-emerald-200 hover:bg-slate-950"
-                    disabled={currentIndex === 0}
+                    onClick={handleSubmit}
+                    disabled={!allAnswered || submitted}
+                    className={[
+                      "rounded-xl px-5 py-2 text-sm font-semibold transition",
+                      !allAnswered || submitted
+                        ? "cursor-not-allowed border border-gray-800 bg-slate-950/60 text-gray-500"
+                        : "border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30",
+                    ].join(" ")}
                   >
-                    ←
+                    {submitted ? "Submitted" : "Complete assessment"}
                   </button>
-                  <button
-                    onClick={handleNextCard}
-                    className="pointer-events-auto rounded-full border border-emerald-400/30 bg-slate-950/80 p-2 text-emerald-200 hover:bg-slate-950"
-                    disabled={currentIndex === questions.length - 1}
-                  >
-                    →
-                  </button>
+                </div>
+
+                <div className="absolute bottom-6 right-6">
+                  <div className="relative h-16 w-16">
+                    <svg className="h-16 w-16 -rotate-90" viewBox="0 0 72 72">
+                      <circle
+                        cx="36"
+                        cy="36"
+                        r={progressRadius}
+                        fill="none"
+                        stroke="rgba(255,255,255,0.16)"
+                        strokeWidth="4"
+                      />
+                      <circle
+                        cx="36"
+                        cy="36"
+                        r={progressRadius}
+                        fill="none"
+                        stroke="rgba(244,244,245,0.92)"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={progressCircumference}
+                        strokeDashoffset={progressOffset}
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-gray-200">
+                      {currentIndex + 1}/{questions.length}
+                    </span>
+                  </div>
                 </div>
               </div>
 
