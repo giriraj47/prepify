@@ -47,24 +47,45 @@ export function VoiceTranscriptionButton({
       SpeechRecognition.stopListening();
     } else {
       // Re-apply the polyfill before starting to guarantee a fresh Azure Speech connection
-      // This fixes a known bug where Azure SDK fails to reconnect after a stop.
       if (typeof window !== "undefined") {
         import("web-speech-cognitive-services").then(({ createSpeechServicesPonyfill }) => {
-          const region = (process.env.NEXT_PUBLIC_AZURE_SPEECH_REGION || "")
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, "");
+          const rawRegion = process.env.NEXT_PUBLIC_AZURE_SPEECH_REGION || "";
+          const region = rawRegion.trim().toLowerCase().replace(/\s+/g, "");
+          const key = (process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY || "").trim();
 
-          if (region && process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY) {
+          // Azure keys are typically 32-character hex strings. 
+          // GUIDs with hyphens are usually Resource IDs, not keys.
+          if (key && (key.includes("-") || key.length !== 32)) {
+            console.warn("VoiceTranscription: The provided Azure Speech Key looks like a Resource ID or GUID instead of a 32-character API key. This may cause connection failures.");
+          }
+
+          if (region && key) {
             const ponyfillFactory = createSpeechServicesPonyfill({
               credentials: {
                 region: region,
-                subscriptionKey: (process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY || "").trim(),
+                subscriptionKey: key,
               },
             });
-            SpeechRecognition.applyPolyfill(ponyfillFactory.SpeechRecognition);
+            
+            // Apply the polyfill
+            const PolyfilledSpeechRecognition = ponyfillFactory.SpeechRecognition;
+            
+            // Some versions of the ponyfill might be missing the stop() method on the instance level
+            // but have abort(). We ensure a stop() method exists to prevent library crashes.
+            if (PolyfilledSpeechRecognition.prototype && !PolyfilledSpeechRecognition.prototype.stop) {
+              PolyfilledSpeechRecognition.prototype.stop = function() {
+                this.abort();
+              };
+            }
+            
+            SpeechRecognition.applyPolyfill(PolyfilledSpeechRecognition);
           }
-          SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+          
+          SpeechRecognition.startListening({ 
+            continuous: true, 
+            language: "en-US",
+            interimResults: true 
+          });
         });
       }
     }
