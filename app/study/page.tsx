@@ -83,14 +83,10 @@ export default function StudyPage() {
           `/api/assessment-questions?${params.toString()}`,
           { cache: "no-store" },
         );
-        if (!res.ok) {
-          throw new Error(`Request failed: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
         const data = (await res.json()) as { questions?: Question[] };
-        if (!data.questions || data.questions.length === 0) {
+        if (!data.questions || data.questions.length === 0)
           throw new Error("No questions returned.");
-        }
-        console.log("[study] initial questions response", data);
         setQuestions(data.questions);
         setSelected({});
         setSubmitted(false);
@@ -104,7 +100,6 @@ export default function StudyPage() {
         setLoading(false);
       }
     };
-
     loadQuestions();
   }, []);
 
@@ -137,33 +132,7 @@ export default function StudyPage() {
       })),
     );
     setSubmitted(true);
-    console.log("[study] submit payload", {
-      score: Math.round((correct / total) * 100),
-      correct,
-      total,
-      weakTopics: Array.from(byTopic.entries())
-        .filter(([, stats]) => stats.correct / stats.total < 0.6)
-        .map(([topic]) => topic),
-      strongTopics: Array.from(byTopic.entries())
-        .filter(([, stats]) => stats.correct / stats.total >= 0.6)
-        .map(([topic]) => topic),
-      answers: selected,
-    });
   }
-
-  const answeredCount = Object.keys(selected).length;
-  const allAnswered = answeredCount === questions.length;
-  const questionCountText = mounted
-    ? `${QUESTION_COUNT} AI-generated questions to assess your baseline.`
-    : "AI-generated questions to assess your baseline.";
-  const currentQuestion = questions[currentIndex];
-  const currentProgress = questions.length
-    ? (currentIndex + 1) / questions.length
-    : 0;
-  const progressRadius = 28;
-  const progressCircumference = 2 * Math.PI * progressRadius;
-  const progressOffset =
-    progressCircumference * (1 - Math.min(Math.max(currentProgress, 0), 1));
 
   async function handleGenerateRoadmap() {
     setRoadmapLoading(true);
@@ -190,13 +159,10 @@ export default function StudyPage() {
       });
       const data = (await res.json()) as {
         roadmapId?: string;
-        roadmap?: unknown;
         error?: string;
       };
-      if (!res.ok || !data.roadmapId) {
+      if (!res.ok || !data.roadmapId)
         throw new Error(data.error ?? "Failed to generate roadmap.");
-      }
-      console.log("[study] roadmap response", data);
       router.push(`/roadmap?rid=${data.roadmapId}`);
     } catch (err) {
       setRoadmapError(
@@ -207,253 +173,554 @@ export default function StudyPage() {
     }
   }
 
+  const allAnswered = Object.keys(selected).length === questions.length;
+  const currentQuestion = questions[currentIndex];
+  const progressRadius = 28;
+  const progressCircumference = 2 * Math.PI * progressRadius;
+  const progressFraction = questions.length
+    ? (currentIndex + 1) / questions.length
+    : 0;
+  const progressOffset =
+    progressCircumference * (1 - Math.min(Math.max(progressFraction, 0), 1));
+
   return (
-    <div className="min-h-screen bg-[#0d0f1a] px-6 py-16 text-white">
-      <div className="mx-auto w-full max-w-5xl space-y-10">
-        <div className="rounded-3xl border border-gray-800 bg-[#0f1424] p-8 shadow-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold">Skill Check (AI)</h2>
-              <p className="mt-2 text-sm text-gray-400">{questionCountText}</p>
-            </div>
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-              Demo
-            </span>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@700;800&family=DM+Mono:wght@400;500&display=swap');
+
+        .cult-root {
+          position: fixed;
+          inset: 0;
+          background: #000;
+          color: #fff;
+          font-family: 'DM Mono', monospace;
+          overflow: hidden;
+        }
+
+        /* Atmospheric glow */
+        .cult-root::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            ellipse 70% 60% at 62% 55%,
+            rgba(10, 60, 55, 0.55) 0%,
+            rgba(5, 30, 28, 0.3) 40%,
+            transparent 70%
+          );
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .cult-inner {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          padding: 6vh 7vw;
+        }
+
+        /* ── Question ── */
+        .cult-question {
+          font-family: 'Barlow', sans-serif;
+          font-weight: 800;
+          font-size: clamp(1.8rem, 4.2vw, 3.8rem);
+          line-height: 1.08;
+          letter-spacing: -0.01em;
+          text-transform: uppercase;
+          color: #fff;
+          max-width: 52%;
+          margin-top: 0;
+          margin-bottom: auto;
+          animation: fadeUp 0.4s ease both;
+        }
+
+        /* ── Options ── */
+        .cult-options {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-bottom: 4vh;
+          animation: fadeUp 0.4s 0.1s ease both;
+        }
+
+        .cult-option {
+          display: flex;
+          align-items: baseline;
+          gap: 2.2rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 0.55rem 0;
+          text-align: left;
+          transition: opacity 0.15s;
+          border-bottom: 0.5px solid rgba(255,255,255,0.06);
+        }
+        .cult-option:first-child { border-top: 0.5px solid rgba(255,255,255,0.06); }
+        .cult-option:disabled { cursor: default; }
+
+        .cult-option-key {
+          font-family: 'DM Mono', monospace;
+          font-size: 0.65rem;
+          color: rgba(255,255,255,0.3);
+          width: 1rem;
+          flex-shrink: 0;
+          transition: color 0.15s;
+        }
+
+        .cult-option-text {
+          font-family: 'DM Mono', monospace;
+          font-size: 0.7rem;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.45);
+          transition: color 0.15s, transform 0.15s;
+        }
+
+        /* States */
+        .cult-option--selected .cult-option-key { color: rgba(255,255,255,0.9); }
+        .cult-option--selected .cult-option-text {
+          color: rgba(255,255,255,0.95);
+          transform: translateX(0.6rem);
+        }
+
+        .cult-option--correct .cult-option-key,
+        .cult-option--correct .cult-option-text { color: #4ade80; }
+
+        .cult-option--wrong .cult-option-key,
+        .cult-option--wrong .cult-option-text { color: rgba(255, 100, 80, 0.7); }
+
+        .cult-option--dimmed .cult-option-text { color: rgba(255,255,255,0.2); }
+
+        .cult-option:not(:disabled):not(.cult-option--selected):hover .cult-option-text {
+          color: rgba(255,255,255,0.75);
+          transform: translateX(0.3rem);
+        }
+
+        /* ── Bottom bar ── */
+        .cult-bottom {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          animation: fadeUp 0.4s 0.15s ease both;
+        }
+
+        .cult-nav {
+          display: flex;
+          align-items: center;
+          gap: 1.2rem;
+        }
+
+        .cult-nav-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.62rem;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.35);
+          padding: 0;
+          transition: color 0.15s;
+        }
+        .cult-nav-btn:not(:disabled):hover { color: rgba(255,255,255,0.9); }
+        .cult-nav-btn:disabled { opacity: 0.2; cursor: default; }
+
+        .cult-submit-btn {
+          background: none;
+          border: 0.5px solid rgba(255,255,255,0.2);
+          cursor: pointer;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.62rem;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.5);
+          padding: 0.5rem 1.2rem;
+          transition: all 0.15s;
+        }
+        .cult-submit-btn:not(:disabled):hover {
+          color: #fff;
+          border-color: rgba(255,255,255,0.6);
+        }
+        .cult-submit-btn:disabled { opacity: 0.25; cursor: default; }
+        .cult-submit-btn--active {
+          border-color: rgba(74, 222, 128, 0.4);
+          color: rgba(74, 222, 128, 0.9);
+        }
+        .cult-submit-btn--active:hover {
+          border-color: rgba(74, 222, 128, 0.8) !important;
+          color: #4ade80 !important;
+        }
+
+        /* ── Circular progress ── */
+        .cult-progress {
+          position: fixed;
+          bottom: 2.5rem;
+          right: 3rem;
+          z-index: 10;
+        }
+        .cult-progress svg { display: block; }
+        .cult-progress-label {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.58rem;
+          color: rgba(255,255,255,0.5);
+          letter-spacing: 0.05em;
+        }
+
+        /* ── Loading / Error ── */
+        .cult-loading {
+          position: fixed;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 20;
+        }
+        .cult-loading p {
+          font-family: 'DM Mono', monospace;
+          font-size: 0.65rem;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.3);
+          animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:0.8} }
+
+        /* ── Post-submit overlay (score + roadmap) ── */
+        .cult-result-bar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 30;
+          padding: 1.4rem 7vw;
+          background: rgba(0,0,0,0.85);
+          backdrop-filter: blur(12px);
+          border-bottom: 0.5px solid rgba(255,255,255,0.08);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 2rem;
+          animation: slideDown 0.3s ease both;
+        }
+
+        .cult-result-score {
+          display: flex;
+          flex-direction: column;
+          gap: 0.1rem;
+        }
+        .cult-result-score span:first-child {
+          font-family: 'DM Mono', monospace;
+          font-size: 0.58rem;
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.3);
+        }
+        .cult-result-score span:last-child {
+          font-family: 'Barlow', sans-serif;
+          font-weight: 800;
+          font-size: 2rem;
+          color: #4ade80;
+          line-height: 1;
+        }
+
+        .cult-result-actions {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .cult-roadmap-btn {
+          background: none;
+          border: 0.5px solid rgba(74, 222, 128, 0.4);
+          cursor: pointer;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.62rem;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(74, 222, 128, 0.9);
+          padding: 0.55rem 1.4rem;
+          transition: all 0.15s;
+        }
+        .cult-roadmap-btn:not(:disabled):hover {
+          border-color: rgba(74, 222, 128, 0.8);
+          color: #4ade80;
+        }
+        .cult-roadmap-btn:disabled { opacity: 0.4; cursor: default; }
+
+        .cult-back-btn {
+          background: none;
+          border: 0.5px solid rgba(255,255,255,0.15);
+          cursor: pointer;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.62rem;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.4);
+          padding: 0.55rem 1.2rem;
+          transition: all 0.15s;
+        }
+        .cult-back-btn:hover { color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.4); }
+
+        .cult-explanation {
+          margin-top: 1.8rem;
+          font-size: 0.62rem;
+          letter-spacing: 0.1em;
+          color: rgba(255,255,255,0.25);
+          max-width: 48%;
+          line-height: 1.7;
+          text-transform: uppercase;
+          animation: fadeUp 0.3s ease both;
+        }
+        .cult-explanation strong { color: rgba(74, 222, 128, 0.7); font-weight: 500; }
+
+        /* Topic breakdown (post-submit, scrollable on smaller screens) */
+        .cult-topics {
+          display: flex;
+          gap: 2rem;
+          flex-wrap: wrap;
+          margin-bottom: 3vh;
+          animation: fadeUp 0.35s ease both;
+        }
+        .cult-topic-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .cult-topic-name {
+          font-size: 0.55rem;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.25);
+        }
+        .cult-topic-stat {
+          font-size: 0.65rem;
+          letter-spacing: 0.1em;
+        }
+        .cult-topic-stat--strong { color: rgba(74, 222, 128, 0.7); }
+        .cult-topic-stat--weak { color: rgba(250, 176, 5, 0.7); }
+
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      <div className="cult-root">
+        {/* Atmospheric bg via ::before pseudo */}
+
+        {/* Loading */}
+        {loading && (
+          <div className="cult-loading">
+            <p>Generating questions…</p>
           </div>
+        )}
 
-          {loading && (
-            <div className="mt-6 text-sm text-gray-400">
-              Generating role-based questions...
+        {/* Error */}
+        {error && (
+          <div className="cult-loading">
+            <p style={{ color: "rgba(250,80,80,0.7)" }}>{error}</p>
+          </div>
+        )}
+
+        {/* Post-submit result bar */}
+        {submitted && score !== null && (
+          <div className="cult-result-bar">
+            <div className="cult-result-score">
+              <span>Score</span>
+              <span>{score}%</span>
             </div>
-          )}
-          {error && (
-            <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {error}
+            <div
+              style={{
+                fontSize: "0.6rem",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.25)",
+              }}
+            >
+              {correctCount} of {totalCount} correct
             </div>
-          )}
-          {!loading && !error && (
-            <>
-              {submitted && score !== null && (
-                <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-5">
-                  <p className="text-xs uppercase tracking-[0.3em] text-emerald-200/80">
-                    Score
-                  </p>
-                  <div className="mt-2 text-4xl font-semibold text-emerald-100">
-                    {score}%
-                  </div>
-                  <p className="mt-2 text-sm text-emerald-100/70">
-                    {
-                      questions.filter(
-                        (q, i) => selected[i] === q.correct_answer,
-                      ).length
-                    }{" "}
-                    of {questions.length} correct
-                  </p>
-                </div>
-              )}
-
-              {submitted && topicSummary.length > 0 && (
-                <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/60 p-6">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-300">
-                    Topic Breakdown
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {topicSummary.map((t) => {
-                      const ratio = t.correct / t.total;
-                      const isStrong = ratio >= 0.6;
-                      return (
-                        <div
-                          key={t.topic}
-                          className={[
-                            "rounded-xl border px-4 py-3",
-                            isStrong
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-                              : "border-amber-500/30 bg-amber-500/10 text-amber-100",
-                          ].join(" ")}
-                        >
-                          <p className="text-xs uppercase tracking-[0.2em] opacity-80">
-                            {t.topic.replace(/-/g, " ")}
-                          </p>
-                          <div className="mt-2 text-sm">
-                            {t.correct} / {t.total} correct
-                          </div>
-                          <div className="mt-1 text-xs opacity-80">
-                            {isStrong ? "Strong topic" : "Needs work"}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="relative mt-6 min-h-[560px] rounded-3xl border border-gray-800 bg-[#080b14] p-6 md:p-10">
-                <div className="flex items-start justify-between gap-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-gray-500">
-                    Question {currentIndex + 1} of {questions.length}
-                  </p>
-                  <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-gray-400">
-                    {currentQuestion?.difficulty}
-                  </span>
-                </div>
-
-                <p className="mt-6 max-w-4xl text-2xl font-semibold uppercase leading-tight text-white md:text-4xl">
-                  {currentQuestion?.question_text}
-                </p>
-
-                <div className="mx-auto mt-16 flex max-w-3xl flex-col gap-3">
-                  {currentQuestion?.options.map((option) => {
-                    const isSelected = selected[currentIndex] === option.key;
-                    const isCorrect = option.key === currentQuestion.correct_answer;
-                    const showResult = submitted;
-
-                    return (
-                      <button
-                        key={`${currentQuestion.topic}-${currentIndex}-${option.key}`}
-                        onClick={() => handleSelect(currentIndex, option.key)}
-                        disabled={submitted}
-                        className={[
-                          "flex items-center gap-4 border-b border-transparent px-2 py-3 text-left text-sm uppercase tracking-[0.12em] transition",
-                          showResult
-                            ? isCorrect
-                              ? "text-emerald-200"
-                              : isSelected
-                                ? "text-red-200"
-                                : "text-gray-400"
-                            : isSelected
-                              ? "text-white"
-                              : "text-gray-300 hover:text-white",
-                        ].join(" ")}
+            {topicSummary.length > 0 && (
+              <div className="cult-topics" style={{ marginBottom: 0 }}>
+                {topicSummary.map((t) => {
+                  const strong = t.correct / t.total >= 0.6;
+                  return (
+                    <div className="cult-topic-item" key={t.topic}>
+                      <span className="cult-topic-name">
+                        {t.topic.replace(/-/g, " ")}
+                      </span>
+                      <span
+                        className={`cult-topic-stat ${strong ? "cult-topic-stat--strong" : "cult-topic-stat--weak"}`}
                       >
-                        <span className="w-6 shrink-0 text-[11px] text-gray-500">
-                          {option.key}
-                        </span>
-                        <span>{option.text}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                        {t.correct}/{t.total} {strong ? "↑" : "↓"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="cult-result-actions">
+              <button
+                className="cult-roadmap-btn"
+                onClick={handleGenerateRoadmap}
+                disabled={roadmapLoading}
+              >
+                {roadmapLoading ? "Generating…" : "Generate Roadmap →"}
+              </button>
+              <button
+                className="cult-back-btn"
+                onClick={() => router.push("/")}
+              >
+                Dashboard
+              </button>
+            </div>
+            {roadmapError && (
+              <span
+                style={{
+                  fontSize: "0.58rem",
+                  color: "rgba(250,80,80,0.7)",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                {roadmapError}
+              </span>
+            )}
+          </div>
+        )}
 
-                {submitted && currentQuestion && (
-                  <p className="mx-auto mt-8 max-w-3xl text-xs text-emerald-100/70">
-                    Correct answer:{" "}
-                    <span className="font-semibold text-emerald-200">
-                      {currentQuestion.correct_answer}
-                    </span>
-                    {currentQuestion.explanation
-                      ? ` — ${currentQuestion.explanation}`
-                      : ""}
-                  </p>
-                )}
+        {/* Main quiz UI */}
+        {!loading && !error && currentQuestion && (
+          <div
+            className="cult-inner"
+            style={{ paddingTop: submitted ? "8rem" : "6vh" }}
+          >
+            {/* Question text */}
+            <h1 className="cult-question" key={currentIndex}>
+              {currentQuestion.question_text}
+            </h1>
 
-                <div className="mt-12 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentIndex((idx) => Math.max(idx - 1, 0))}
-                      disabled={currentIndex === 0}
-                      className="rounded-md border border-gray-700 px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Prev
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCurrentIndex((idx) =>
-                          Math.min(idx + 1, questions.length - 1),
-                        )
-                      }
-                      disabled={currentIndex === questions.length - 1}
-                      className="rounded-md border border-gray-700 px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Next
-                    </button>
-                  </div>
+            {/* Explanation (post-submit) */}
+            {submitted && (
+              <p className="cult-explanation">
+                <strong>{currentQuestion.correct_answer}.</strong>{" "}
+                {currentQuestion.explanation}
+              </p>
+            )}
 
+            {/* Options */}
+            <div className="cult-options">
+              {currentQuestion.options.map((option) => {
+                const isSelected = selected[currentIndex] === option.key;
+                const isCorrect = option.key === currentQuestion.correct_answer;
+                const isWrong = submitted && isSelected && !isCorrect;
+                const isDimmed = submitted && !isCorrect && !isSelected;
+
+                return (
                   <button
-                    onClick={handleSubmit}
-                    disabled={!allAnswered || submitted}
+                    key={`${currentIndex}-${option.key}`}
                     className={[
-                      "rounded-xl px-5 py-2 text-sm font-semibold transition",
-                      !allAnswered || submitted
-                        ? "cursor-not-allowed border border-gray-800 bg-slate-950/60 text-gray-500"
-                        : "border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30",
-                    ].join(" ")}
+                      "cult-option",
+                      submitted
+                        ? isCorrect
+                          ? "cult-option--correct"
+                          : isWrong
+                            ? "cult-option--wrong"
+                            : "cult-option--dimmed"
+                        : isSelected
+                          ? "cult-option--selected"
+                          : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={() => handleSelect(currentIndex, option.key)}
+                    disabled={submitted}
                   >
-                    {submitted ? "Submitted" : "Complete assessment"}
+                    <span className="cult-option-key">{option.key}</span>
+                    <span className="cult-option-text">{option.text}</span>
                   </button>
-                </div>
+                );
+              })}
+            </div>
 
-                <div className="absolute bottom-6 right-6">
-                  <div className="relative h-16 w-16">
-                    <svg className="h-16 w-16 -rotate-90" viewBox="0 0 72 72">
-                      <circle
-                        cx="36"
-                        cy="36"
-                        r={progressRadius}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.16)"
-                        strokeWidth="4"
-                      />
-                      <circle
-                        cx="36"
-                        cy="36"
-                        r={progressRadius}
-                        fill="none"
-                        stroke="rgba(244,244,245,0.92)"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                        strokeDasharray={progressCircumference}
-                        strokeDashoffset={progressOffset}
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-gray-200">
-                      {currentIndex + 1}/{questions.length}
-                    </span>
-                  </div>
-                </div>
+            {/* Bottom bar: nav + submit */}
+            <div className="cult-bottom">
+              <div className="cult-nav">
+                <button
+                  className="cult-nav-btn"
+                  onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
+                  disabled={currentIndex === 0}
+                >
+                  ← Prev
+                </button>
+                <button
+                  className="cult-nav-btn"
+                  onClick={() =>
+                    setCurrentIndex((i) =>
+                      Math.min(i + 1, questions.length - 1),
+                    )
+                  }
+                  disabled={currentIndex === questions.length - 1}
+                >
+                  Next →
+                </button>
               </div>
 
-              {submitted && (
-                <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-slate-950/60 p-6">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm text-emerald-100">
-                        Ready for a tailored roadmap?
-                      </p>
-                      <p className="text-xs text-emerald-200/70">
-                        We will focus on your weak topics first.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleGenerateRoadmap}
-                      disabled={roadmapLoading}
-                      className={[
-                        "rounded-xl px-5 py-2 text-sm font-semibold transition",
-                        roadmapLoading
-                          ? "cursor-not-allowed border border-gray-800 bg-slate-950/60 text-gray-500"
-                          : "border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30",
-                      ].join(" ")}
-                    >
-                      {roadmapLoading ? "Generating…" : "Generate Roadmap"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => router.push("/")}
-                      className="rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
-                    >
-                      Back to Dashboard
-                    </button>
-                  </div>
-                  {roadmapError && (
-                    <p className="mt-3 text-xs text-red-300">{roadmapError}</p>
-                  )}
-                </div>
+              {!submitted && (
+                <button
+                  className={`cult-submit-btn ${allAnswered ? "cult-submit-btn--active" : ""}`}
+                  onClick={handleSubmit}
+                  disabled={!allAnswered}
+                >
+                  Complete assessment
+                </button>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
+
+        {/* Circular progress — fixed bottom-right */}
+        {!loading && !error && questions.length > 0 && (
+          <div className="cult-progress">
+            <svg width="64" height="64" viewBox="0 0 72 72">
+              <circle
+                cx="36"
+                cy="36"
+                r={progressRadius}
+                fill="none"
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="3"
+              />
+              <circle
+                cx="36"
+                cy="36"
+                r={progressRadius}
+                fill="none"
+                stroke="rgba(255,255,255,0.55)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={progressCircumference}
+                strokeDashoffset={progressOffset}
+                transform="rotate(-90 36 36)"
+                style={{ transition: "stroke-dashoffset 0.35s ease" }}
+              />
+            </svg>
+            <div className="cult-progress-label">
+              {currentIndex + 1}/{questions.length}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
