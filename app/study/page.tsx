@@ -225,14 +225,14 @@ export default function StudyPage() {
         /* ── Question ── */
         .cult-question {
           font-family: 'Barlow', sans-serif;
-          font-weight: 800;
-          font-size: clamp(1.8rem, 4.2vw, 3.8rem);
+          // font-weight: 800;
+          font-size: 42px
           line-height: 1.08;
           letter-spacing: -0.01em;
           text-transform: uppercase;
           color: #fff;
-          max-width: 52%;
-          margin-top: 0;
+          max-width: 90%;
+          margin-top: 32px;
           margin-bottom: auto;
           animation: fadeUp 0.4s ease both;
         }
@@ -242,7 +242,7 @@ export default function StudyPage() {
           display: flex;
           flex-direction: column;
           gap: 0;
-          margin-bottom: 4vh;
+          margin-bottom: 330px;
           animation: fadeUp 0.4s 0.1s ease both;
         }
 
