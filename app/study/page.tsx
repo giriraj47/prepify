@@ -60,13 +60,14 @@ export default function StudyPage() {
         }
         const { data: profileData } = await supabase
           .from("users")
-          .select("experience_level, experience_years, role:roles(name)")
+          .select("experience_level, experience_years, roles(name)")
           .eq("id", userData.user.id)
           .maybeSingle();
 
-        const roleValue = Array.isArray(profileData?.role)
-          ? profileData?.role[0]
-          : profileData?.role;
+        const roleValue = Array.isArray(profileData?.roles)
+          ? profileData?.roles[0]
+          : profileData?.roles;
+
         const resolvedProfile = {
           roleName: roleValue?.name ?? "Frontend Developer",
           experienceLevel: profileData?.experience_level ?? "mid",
@@ -81,6 +82,7 @@ export default function StudyPage() {
         });
         const res = await fetch(
           `/api/assessment-questions?${params.toString()}`,
+          { cache: "no-store" },
         );
         if (!res.ok) {
           throw new Error(`Request failed: ${res.status}`);

@@ -1,27 +1,25 @@
 import {
-  generateAssessmentQuestions,
+  generateAssessmentQuestionsWithGroq,
   type AssessmentQuestion,
-} from "@/lib/gemini";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+} from "@/lib/groq";
 
 export const runtime = "nodejs";
-export const dynamic = "force-static";
-export const revalidate = 86400;
+export const dynamic = "force-dynamic";
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+function normalizeRoleName(value: string | null): string {
+  if (!value) return "Frontend Developer";
 
-const ROLE_SLUG_MAP: Record<string, string> = {
-  "Frontend Developer": "frontend-developer",
-  "Backend Developer": "backend-developer",
-  "Full Stack Developer": "fullstack-developer",
-  "DevOps / SRE": "devops-sre",
-  "QA / Test Engineer": "qa-engineer",
-};
+  const input = value.trim().toLowerCase();
 
-function isFresh(iso?: string | null): boolean {
-  if (!iso) return false;
-  const ts = new Date(iso).getTime();
-  return Number.isFinite(ts) && Date.now() - ts < CACHE_TTL_MS;
+  if (input.includes("frontend")) return "Frontend Developer";
+  if (input.includes("backend")) return "Backend Developer";
+  if (input.includes("full") && input.includes("stack")) {
+    return "Full Stack Developer";
+  }
+  if (input.includes("devops") || input.includes("sre")) return "DevOps / SRE";
+  if (input.includes("qa") || input.includes("test")) return "QA / Test Engineer";
+
+  return value;
 }
 
 async function fetchTenQuestions(params: {
@@ -30,28 +28,31 @@ async function fetchTenQuestions(params: {
   experienceYears: number;
 }): Promise<AssessmentQuestion[]> {
   const desiredCount = 10;
-  const maxAttempts = 3;
+  const maxAttempts = 4;
   const collected: AssessmentQuestion[] = [];
   const seen = new Set<string>();
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (collected.length >= desiredCount) break;
-    const { questions } = await generateAssessmentQuestions(params);
+
+    const { questions } = await generateAssessmentQuestionsWithGroq(params);
     if (!Array.isArray(questions)) continue;
 
     for (const q of questions) {
       if (collected.length >= desiredCount) break;
+
       const text = q?.question_text?.trim();
       if (!text || seen.has(text)) continue;
       if (!Array.isArray(q.options) || q.options.length !== 4) continue;
       if (!["A", "B", "C", "D"].includes(q.correct_answer)) continue;
+
       seen.add(text);
       collected.push(q);
     }
   }
 
   if (collected.length < desiredCount) {
-    throw new Error("Gemini returned fewer than 10 valid questions.");
+    throw new Error("Groq returned fewer than 10 valid questions.");
   }
 
   return collected.slice(0, desiredCount);
@@ -59,81 +60,45 @@ async function fetchTenQuestions(params: {
 
 export async function GET(request: Request) {
   try {
-    if (
-      !process.env.GOOGLE_GENERATIVE_AI_API_KEY &&
-      !process.env.GEMINI_API_KEY
-    ) {
-      throw new Error(
-        "GOOGLE_GENERATIVE_AI_API_KEY (or GEMINI_API_KEY) is missing on the server.",
-      );
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY is missing on the server.");
     }
 
     const { searchParams } = new URL(request.url);
-    const roleName = searchParams.get("roleName") ?? "Frontend Developer";
-    const experienceLevel = searchParams.get("experienceLevel") ?? "mid";
-    const experienceYears = Number(searchParams.get("experienceYears") ?? 3);
-
-    const supabase = await createSupabaseServerClient();
-    const roleSlug = ROLE_SLUG_MAP[roleName] ?? null;
-    let roleId: string | null = null;
-    if (roleSlug) {
-      const { data: roleRow } = await supabase
-        .from("roles")
-        .select("id")
-        .eq("slug", roleSlug)
-        .maybeSingle();
-      roleId = roleRow?.id ?? null;
-    } else {
-      const { data: roleRow } = await supabase
-        .from("roles")
-        .select("id")
-        .eq("name", roleName)
-        .maybeSingle();
-      roleId = roleRow?.id ?? null;
-    }
-
-    if (roleId) {
-      const { data: existing } = await supabase
-        .from("question_sets")
-        .select("id, questions, generated_at")
-        .eq("role_id", roleId)
-        .eq("experience_level", experienceLevel)
-        .order("generated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existing?.questions && isFresh(existing.generated_at)) {
-        return Response.json(
-          { questions: existing.questions as AssessmentQuestion[] },
-          {
-            headers: {
-              "Cache-Control": "public, max-age=86400, s-maxage=86400",
-            },
-          },
-        );
-      }
-    }
+    const roleName = normalizeRoleName(
+      searchParams.get("roleName") ?? searchParams.get("role"),
+    );
+    const experienceLevel =
+      searchParams.get("experienceLevel") ??
+      searchParams.get("experience") ??
+      "mid";
+    const parsedYears = Number(
+      searchParams.get("experienceYears") ?? searchParams.get("years") ?? 3,
+    );
+    const experienceYears = Number.isFinite(parsedYears) ? parsedYears : 3;
 
     const questions = await fetchTenQuestions({
       roleName,
       experienceLevel,
-      experienceYears: Number.isFinite(experienceYears) ? experienceYears : 3,
+      experienceYears,
     });
 
-    if (roleId) {
-      await supabase.from("question_sets").insert({
-        role_id: roleId,
-        experience_level: experienceLevel,
-        questions,
-        generated_at: new Date().toISOString(),
-      });
-    }
-
     return Response.json(
-      { questions },
+      {
+        questions,
+        meta: {
+          source: "groq",
+          generatedAt: new Date().toISOString(),
+          roleName,
+          experienceLevel,
+          experienceYears,
+        },
+      },
       {
         headers: {
-          "Cache-Control": "public, max-age=86400, s-maxage=86400",
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       },
     );

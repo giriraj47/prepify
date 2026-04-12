@@ -159,9 +159,12 @@ export async function generateAssessmentQuestions(
   const prompt = `
 You are an expert technical interviewer. Generate exactly 10 multiple-choice assessment questions
 to evaluate a ${experienceLevel}-level ${roleName} with ${experienceYears} year(s) of experience.
+[Request ID: ${Math.random().toString(36).substring(2, 9)}]
 
 Rules:
-- Cover a VARIETY of topics relevant to this role (not just one area)
+- Focus on concepts, tools, and best practices EXCLUSIVE and ESSENTIAL to the ${roleName} role.
+- Cover a VARIETY of sub-topics relevant to this role (e.g., if it's Frontend, cover state, styling, performance, framework specifics).
+- Ensure the difficulty matches the ${experienceLevel} level precisely.
 - Each question must have exactly 4 options (A, B, C, D)
 - Only one option is correct
 - Keep question_text concise and unambiguous
