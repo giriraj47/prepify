@@ -264,7 +264,7 @@ export default function StudyPage() {
 
           {loading && (
             <div className="mt-6 text-sm text-gray-400">
-              Generating questions with Gemini...
+              Generating role-based questions...
             </div>
           )}
           {error && (
@@ -441,7 +441,7 @@ export default function StudyPage() {
                                 : "border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30",
                             ].join(" ")}
                           >
-                            {submitted ? "Submitted" : "Submit answers"}
+                            {submitted ? "Submitted" : "Complete assessment"}
                           </button>
                         </div>
                       )}
@@ -488,7 +488,14 @@ export default function StudyPage() {
                           : "border border-emerald-400/40 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30",
                       ].join(" ")}
                     >
-                      {roadmapLoading ? "Generating…" : "Generate roadmap"}
+                      {roadmapLoading ? "Generating…" : "Generate Roadmap"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/")}
+                      className="rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+                    >
+                      Back to Dashboard
                     </button>
                   </div>
                   {roadmapError && (

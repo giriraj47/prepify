@@ -67,10 +67,10 @@ function RoadmapPageContent() {
         <div className="mx-auto w-full max-w-3xl rounded-3xl border border-red-500/30 bg-red-500/10 p-8">
           <p className="text-sm text-red-200">{error}</p>
           <button
-            onClick={() => router.push("/study")}
+            onClick={() => router.push("/")}
             className="mt-4 rounded-xl border border-red-500/40 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/30"
           >
-            Back to Study
+            Back to Dashboard
           </button>
         </div>
       </div>
@@ -255,7 +255,7 @@ function RoadmapPageContent() {
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-8">
-          <div className="flex justify-center">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
               disabled={!allResourcesCompleted}
@@ -273,6 +273,13 @@ function RoadmapPageContent() {
               }}
             >
               Review Your Progress
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="rounded-full border border-white/20 bg-white/5 px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white/90 transition hover:bg-white/10"
+            >
+              Back to Dashboard
             </button>
           </div>
         </div>

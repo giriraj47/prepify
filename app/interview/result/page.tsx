@@ -15,6 +15,14 @@ function ResultContent() {
   const [evaluation, setEvaluation] = useState<any | null>(null);
 
   useEffect(() => {
+    if (!evaluation) return;
+    const timeout = window.setTimeout(() => {
+      router.push("/");
+    }, 12000);
+    return () => window.clearTimeout(timeout);
+  }, [evaluation, router]);
+
+  useEffect(() => {
     if (!sessionId) {
       router.push("/");
       return;
@@ -177,13 +185,16 @@ function ResultContent() {
       )}
 
       <div className="flex justify-center pb-20">
-        <Link 
+        <Link
           href="/"
           className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-[#c0c1ff] via-[#9ca1ff] to-[#8083ff] px-8 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-950 shadow-[0_25px_60px_-40px_rgba(56,189,248,0.6)] transition hover:brightness-110"
         >
           Return to Dashboard
         </Link>
       </div>
+      <p className="text-center text-xs text-slate-500 pb-8">
+        Redirecting to dashboard in 12 seconds...
+      </p>
     </div>
   );
 }

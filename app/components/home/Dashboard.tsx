@@ -74,7 +74,7 @@ export function Dashboard({ summary }: DashboardProps) {
               {[
                 { label: "Dashboard", href: "/", active: true },
                 { label: "My Roadmap", href: "/roadmap" },
-                { label: "Practice History", href: "/study" },
+                { label: "Roadmap Assessment", href: "/study" },
                 { label: "Resources", href: "#" },
               ].map((item) => (
                 <Link
@@ -158,16 +158,16 @@ export function Dashboard({ summary }: DashboardProps) {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/roadmap"
+                href="/study"
                 className="inline-flex items-center gap-2 bg-[#2D3FE7] hover:bg-[#2435c4] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm shadow-md shadow-indigo-200"
               >
-                <span>▶</span> Resume Roadmap
+                <span>▶</span> Generate Roadmap
               </Link>
               <Link
                 href="/interview"
                 className="inline-flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-[#2D3FE7] font-semibold px-6 py-3 rounded-xl transition-colors text-sm border border-indigo-200"
               >
-                <span>⚡</span> Quick Practice
+                <span>⚡</span> Interview
               </Link>
             </div>
           </div>
@@ -255,7 +255,7 @@ export function Dashboard({ summary }: DashboardProps) {
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-bold text-gray-900">Recent Activity</h2>
               <Link href="/study" className="text-sm font-semibold text-[#2D3FE7] hover:underline">
-                View All
+                View Assessment
               </Link>
             </div>
             <div className="space-y-3">

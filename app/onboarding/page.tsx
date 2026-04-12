@@ -68,7 +68,7 @@ export default function Onboarding() {
       console.error("Failed to save profile", err);
       return;
     }
-    router.replace("/study");
+    router.replace("/");
   };
 
   return (
