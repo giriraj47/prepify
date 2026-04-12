@@ -4,12 +4,206 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceTranscriptionButton, VoiceWaveform } from "@/app/components/shared/VoiceTranscription";
 
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  .iv-root {
+    position: fixed; inset: 0;
+    background: #000;
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .iv-glow {
+    position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 70% 58% at 60% 48%, rgba(10,62,55,0.5) 0%, rgba(5,28,26,0.24) 40%, transparent 66%),
+      radial-gradient(ellipse 26% 20% at 14% 78%, rgba(4,22,35,0.28) 0%, transparent 55%);
+  }
+
+  /* ── Nav ── */
+  .iv-nav {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.4rem 5vw;
+    border-bottom: 0.5px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+
+  .iv-nav-logo {
+    font-family: 'Barlow', sans-serif; font-weight: 800;
+    font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; color: #fff;
+    text-decoration: none;
+  }
+
+  .iv-nav-meta {
+    display: flex; align-items: center; gap: 2rem;
+  }
+
+  .iv-nav-type {
+    font-size: 0.52rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .iv-nav-back {
+    font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.75);; background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; transition: color 0.15s; padding: 0;
+  }
+  .iv-nav-back:hover { color: rgba(255,255,255,0.6); }
+
+  /* ── Body ── */
+  .iv-body {
+    position: relative; z-index: 1;
+    flex: 1; overflow: hidden;
+    display: flex; flex-direction: column;
+    padding: 5vh 5vw 3vh;
+  }
+
+  /* ── Question ── */
+  .iv-question {
+    font-family: 'Barlow', sans-serif; font-weight: 800;
+    font-size: 42px;
+    line-height: 1.07; letter-spacing: -0.01em; text-transform: uppercase;
+    color: #cdcdcdff; max-width: 90%;
+    margin-bottom: auto;
+    animation: ivFadeUp 0.4s ease both;
+  }
+
+  .iv-follow-up {
+    margin-top: 1.4rem;
+    padding-left: 1.2rem;
+    border-left: 0.5px solid rgba(74,222,128,0.3);
+    animation: ivFadeUp 0.4s 0.06s ease both;
+  }
+  .iv-follow-up-label {
+    font-size: 0.48rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: rgba(74,222,128,0.45); margin-bottom: 0.35rem; display: block;
+  }
+  .iv-follow-up-text {
+    font-size: 0.62rem; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.3); line-height: 1.75; max-width: 50ch;
+  }
+
+  /* ── Textarea zone ── */
+  .iv-input-zone {
+    margin-top: 9vh;
+    border-top: 0.5px solid rgba(255,255,255,0.06);
+    padding-top: 2.2vh;
+    display: flex; flex-direction: column; gap: 1.2rem;
+    animation: ivFadeUp 0.4s 0.1s ease both;
+  }
+
+  .iv-textarea-wrap { position: relative; }
+
+  .iv-textarea {
+    width: 100%;
+    min-height: 300px;
+    max-height : 600px;
+    background: rgba(255,255,255,0.02);
+    border: 0.5px solid rgba(255,255,255,0.1);
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem; letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.7);
+    padding: 1.2rem 3.5rem 1.2rem 1.2rem;
+    resize: none; outline: none;
+    transition: border-color 0.15s, background 0.15s;
+    line-height: 1.8;
+  }
+  .iv-textarea::placeholder { color: rgba(255, 255, 255, 0.51); }
+  .iv-textarea:focus {
+    border-color: rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.03);
+  }
+  .iv-textarea:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .iv-voice-btn-wrap {
+    position: absolute; bottom: 0.9rem; right: 0.9rem;
+  }
+  .iv-voice-wave-wrap {
+    position: absolute; bottom: 1rem; left: 1rem;
+  }
+
+  /* ── Bottom bar ── */
+  .iv-bottom {
+    display: flex; align-items: center; justify-content: space-between;
+    animation: ivFadeUp 0.4s 0.14s ease both;
+  }
+
+  .iv-counter {
+    font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+  }
+
+  .iv-submit-btn {
+    background: none; cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 0.65rem 1.8rem;
+    border: 0.5px solid rgba(74,222,128,0.35);
+    color: rgba(74,222,128,0.85);
+    transition: all 0.15s;
+  }
+  .iv-submit-btn:not(:disabled):hover {
+    border-color: rgba(74,222,128,0.7);
+    color: #4ade80;
+  }
+  .iv-submit-btn:disabled {
+    border-color: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.2);
+    cursor: not-allowed;
+  }
+
+  /* ── Progress dots ── */
+  .iv-progress {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .iv-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    transition: background 0.2s;
+  }
+  .iv-dot--done  { background: rgba(74,222,128,0.6); }
+  .iv-dot--active { background: rgba(255,255,255,0.6); }
+
+  /* ── Circular progress ── */
+  .iv-ring {
+    position: fixed; bottom: 2.2rem; right: 3rem; z-index: 10;
+  }
+  .iv-ring-label {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.52rem; color: rgba(255,255,255,0.4); letter-spacing: 0.05em;
+  }
+
+  /* ── States ── */
+  .iv-center {
+    position: fixed; inset: 0; background: #000;
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .iv-center p {
+    font-family: 'DM Mono', monospace; font-size: 0.62rem;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+    animation: ivPulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes ivPulse { 0%,100%{opacity:0.25} 50%{opacity:0.75} }
+  @keyframes ivFadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+`;
+
 export default function InterviewPage() {
   const router = useRouter();
   const [response, setResponse] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
-
   const [questions, setQuestions] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -20,16 +214,9 @@ export default function InterviewPage() {
   useEffect(() => {
     async function startInterview() {
       try {
-        const res = await fetch("/api/interview/start", {
-          method: "POST",
-        });
-
+        const res = await fetch("/api/interview/start", { method: "POST" });
         const data = await res.json();
-        
-        if (!res.ok) {
-          throw new Error(data.error || "Failed to start interview.");
-        }
-
+        if (!res.ok) throw new Error(data.error || "Failed to start interview.");
         setQuestions(data.questions);
         setSessionId(data.sessionId);
       } catch (err: any) {
@@ -38,79 +225,48 @@ export default function InterviewPage() {
         setLoading(false);
       }
     }
-
     startInterview();
   }, []);
 
   const handleTranscript = (transcript: string) => {
     setResponse((prev) => {
-      const needsSpace =
-        prev.length > 0 && !prev.endsWith(" ") && !prev.endsWith("\n");
+      const needsSpace = prev.length > 0 && !prev.endsWith(" ") && !prev.endsWith("\n");
       return prev + (needsSpace ? " " : "") + transcript;
     });
     setInterimTranscript("");
   };
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setResponse(e.target.value);
-  };
-
   const handleSubmit = async () => {
     if (!sessionId || !questions[currentIndex] || submitting) return;
-
-    // To prevent rapid clicks
     setSubmitting(true);
-
-    const isLastQuestion = currentIndex === questions.length - 1;
-    const currentQuestion = questions[currentIndex];
-
+    const isLast = currentIndex === questions.length - 1;
+    const q = questions[currentIndex];
     try {
-      // 1. Submit response
-      const resData = await fetch("/api/interview/response", {
+      await fetch("/api/interview/response", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId,
-          questionIndex: currentIndex,
-          questionText: currentQuestion.question,
-          questionType: currentQuestion.type,
-          transcript: response,
-          durationSeconds: 0, // Could be tracked later
+          sessionId, questionIndex: currentIndex,
+          questionText: q.question, questionType: q.type,
+          transcript: response, durationSeconds: 0,
         }),
       });
-
-      if (!resData.ok) {
-        console.error("Failed to submit response");
-      }
-
-      if (isLastQuestion) {
-        // Update progress to completed
+      if (isLast) {
         await fetch("/api/interview/progress", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            currentQuestionIndex: currentIndex,
-            status: "completed",
-          }),
+          body: JSON.stringify({ sessionId, currentQuestionIndex: currentIndex, status: "completed" }),
         });
-
-        // Redirect or show a completion screen
         router.push("/dashboard");
       } else {
-        // Move to next question
-        const nextIndex = currentIndex + 1;
+        const next = currentIndex + 1;
         await fetch("/api/interview/progress", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            currentQuestionIndex: nextIndex,
-          }),
+          body: JSON.stringify({ sessionId, currentQuestionIndex: next }),
         });
-
-        setCurrentIndex(nextIndex);
-        setResponse(""); // Clear text area for next question
+        setCurrentIndex(next);
+        setResponse("");
         setInterimTranscript("");
       }
     } catch (err) {
@@ -122,101 +278,132 @@ export default function InterviewPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#121315] px-6 py-20 text-white flex items-center justify-center">
-        <p className="text-slate-400">Loading interview environment...</p>
-      </main>
+      <>
+        <style>{CSS}</style>
+        <div className="iv-center"><p>Preparing your interview…</p></div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <main className="min-h-screen bg-[#121315] px-6 py-20 text-white flex items-center justify-center">
-        <div className="max-w-xl text-center">
-          <p className="text-red-400 mb-4">{error}</p>
-          <button onClick={() => router.push("/dashboard")} className="px-4 py-2 bg-slate-800 rounded-lg">Return to Dashboard</button>
+      <>
+        <style>{CSS}</style>
+        <div className="iv-center">
+          <div style={{ textAlign: "center" }}>
+            <p style={{ color: "rgba(250,80,80,0.65)", marginBottom: "1.5rem", fontSize: "0.62rem", letterSpacing: "0.12em" }}>{error}</p>
+            <button
+              onClick={() => router.push("/")}
+              style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.15)", cursor: "pointer", fontFamily: "'DM Mono', monospace", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", padding: "0.55rem 1.2rem", transition: "all 0.15s" }}
+            >
+              Return to Dashboard
+            </button>
+          </div>
         </div>
-      </main>
+      </>
     );
   }
 
-  if (questions.length === 0 || !questions[currentIndex]) {
-    return null;
-  }
+  if (!questions.length || !questions[currentIndex]) return null;
 
-  const currentQuestion = questions[currentIndex];
-  const isLastQuestion = currentIndex === questions.length - 1;
+  const q = questions[currentIndex];
+  const isLast = currentIndex === questions.length - 1;
+  const displayValue = isListening && interimTranscript
+    ? response + (response.length > 0 && !response.endsWith(" ") ? " " : "") + interimTranscript
+    : response;
 
-  const displayValue =
-    isListening && interimTranscript
-      ? response +
-        (response.length > 0 && !response.endsWith(" ") && !response.endsWith("\n")
-          ? " "
-          : "") +
-        interimTranscript
-      : response;
-
-  const typeDisplay = currentQuestion.type.replace(/_/g, " ");
+  const circumference = 2 * Math.PI * 28;
+  const offset = circumference * (1 - (currentIndex + 1) / questions.length);
 
   return (
-    <main className="min-h-screen bg-[#121315] px-6 py-20 text-white">
-      <div className="mx-auto w-full max-w-5xl space-y-10">
-        <section className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-              {typeDisplay} Question ({currentIndex + 1} / {questions.length})
-            </p>
+    <>
+      <style>{CSS}</style>
+      <div className="iv-root">
+        <div className="iv-glow" />
+
+        {/* Nav */}
+        <nav className="iv-nav">
+          <a href="/" className="iv-nav-logo">Prepify</a>
+          <div className="iv-nav-meta">
+            <span className="iv-nav-type">
+              {q.type?.replace(/_/g, " ")} Interview
+            </span>
+            <button className="iv-nav-back" onClick={() => router.push("/")}>← Exit</button>
           </div>
-          <h1 className="max-w-4xl text-2xl font-semibold tracking-tight text-white sm:text-4xl min-h-[5rem]">
-            {currentQuestion.question}
-          </h1>
-          {currentQuestion.follow_up && (
-            <p className="max-w-3xl text-sm leading-8 text-slate-400 border-l-2 border-[#44e2cd] pl-4">
-              <span className="font-semibold text-slate-300 block mb-1">Follow up for consideration:</span>
-              {currentQuestion.follow_up}
-            </p>
-          )}
-        </section>
+        </nav>
 
-        <section className="rounded-4xl bg-[#171a20] p-8 shadow-[0_32px_64px_-32px_rgba(0,0,0,0.24)]">
-          <div className="rounded-[1.75rem] bg-[#23252b] p-6">
-            <div className="relative">
+        {/* Body */}
+        <div className="iv-body">
+          {/* Question */}
+          <div key={currentIndex}>
+            <h1 className="iv-question">{q.question}</h1>
+            {q.follow_up && (
+              <div className="iv-follow-up">
+                <span className="iv-follow-up-label">Consider also</span>
+                <p className="iv-follow-up-text">{q.follow_up}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Input zone */}
+          <div className="iv-input-zone">
+            <div className="iv-textarea-wrap">
               <textarea
-                id="response"
-                name="response"
-                rows={14}
-                placeholder="Type or dictate your response here..."
+                className="iv-textarea"
+                rows={6}
+                placeholder="Type or dictate your response…"
                 value={displayValue}
-                onChange={handleTextChange}
+                onChange={(e) => setResponse(e.target.value)}
                 disabled={submitting}
-                className="min-h-85 w-full resize-none rounded-3xl bg-[#121315] px-6 py-5 pr-16 text-base text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-[#c0c1ff]/20"
               />
+              {/* <div className="iv-voice-wave-wrap">
+                <VoiceWaveform isVisible={isListening} />
+              </div> */}
+              <div className="iv-voice-btn-wrap">
+                <VoiceTranscriptionButton
+                  onTranscript={handleTranscript}
+                  onInterimTranscript={setInterimTranscript}
+                  onListeningChange={setIsListening}
+                />
+              </div>
+            </div>
 
-              <VoiceWaveform 
-                isVisible={isListening} 
-                className="absolute bottom-6 left-6" 
-              />
-
-              <VoiceTranscriptionButton
-                onTranscript={handleTranscript}
-                onInterimTranscript={setInterimTranscript}
-                onListeningChange={setIsListening}
-                className="absolute bottom-5 right-5"
-              />
+            {/* Bottom bar */}
+            <div className="iv-bottom">
+              <div className="iv-progress">
+                {questions.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`iv-dot ${i < currentIndex ? "iv-dot--done" : i === currentIndex ? "iv-dot--active" : ""}`}
+                  />
+                ))}
+              </div>
+              <button
+                className="iv-submit-btn"
+                onClick={handleSubmit}
+                disabled={submitting || (!response.trim() && !isListening)}
+              >
+                {submitting ? "Processing…" : isLast ? "Finish Interview →" : "Submit & Continue →"}
+              </button>
             </div>
           </div>
+        </div>
 
-          <div className="mt-8 flex justify-center">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting || (!response.trim() && !isListening)}
-              className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-[#c0c1ff] via-[#9ca1ff] to-[#8083ff] px-8 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-950 shadow-[0_25px_60px_-40px_rgba(56,189,248,0.6)] transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? "Processing..." : (isLastQuestion ? "Finish Interview" : "Submit & Continue")}
-            </button>
-          </div>
-        </section>
+        {/* Circular progress */}
+        <div className="iv-ring">
+          <svg width="64" height="64" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+            <circle
+              cx="36" cy="36" r="28" fill="none"
+              stroke="rgba(255,255,255,0.5)" strokeWidth="3" strokeLinecap="round"
+              strokeDasharray={circumference} strokeDashoffset={offset}
+              transform="rotate(-90 36 36)"
+              style={{ transition: "stroke-dashoffset 0.4s ease" }}
+            />
+          </svg>
+          <div className="iv-ring-label">{currentIndex + 1}/{questions.length}</div>
+        </div>
       </div>
-    </main>
+    </>
   );
 }
