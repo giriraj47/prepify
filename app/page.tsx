@@ -71,6 +71,7 @@ export default function Home() {
     weakTopics: string[];
     strongTopics: string[];
   } | null>(null);
+  const [latestRoadmapId, setLatestRoadmapId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -107,6 +108,16 @@ export default function Home() {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
+
+        const { data: latestRoadmap } = await supabase
+          .from("roadmaps")
+          .select("id")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        setLatestRoadmapId(latestRoadmap?.id ?? null);
 
         if (latest) {
           const freshSummary = {
@@ -163,8 +174,7 @@ export default function Home() {
   }
 
   // Authenticated & onboarded → Dashboard
-  return <Dashboard summary={summary} />;
+  return <Dashboard summary={summary} latestRoadmapId={latestRoadmapId} />;
 }
-
 
 

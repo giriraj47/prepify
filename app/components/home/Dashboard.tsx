@@ -13,6 +13,7 @@ interface DashboardProps {
     weakTopics: string[];
     strongTopics: string[];
   } | null;
+  latestRoadmapId: string | null;
 }
 
 const recentActivity = [
@@ -39,7 +40,7 @@ const recentActivity = [
   },
 ];
 
-export function Dashboard({ summary }: DashboardProps) {
+export function Dashboard({ summary, latestRoadmapId }: DashboardProps) {
   const { user, signOut } = useAuth();
   const profile = useProfileStore((s) => s.profile);
   const router = useRouter();
@@ -62,6 +63,11 @@ export function Dashboard({ summary }: DashboardProps) {
     await signOut();
     router.push("/");
   };
+
+  const primaryCtaHref = latestRoadmapId
+    ? `/roadmap?rid=${encodeURIComponent(latestRoadmapId)}`
+    : "/study";
+  const primaryCtaLabel = latestRoadmapId ? "Go to Roadmap" : "Generate Roadmap";
 
   return (
     <div className="min-h-screen bg-[#f4f6fb]">
@@ -158,10 +164,10 @@ export function Dashboard({ summary }: DashboardProps) {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/study"
+                href={primaryCtaHref}
                 className="inline-flex items-center gap-2 bg-[#2D3FE7] hover:bg-[#2435c4] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm shadow-md shadow-indigo-200"
               >
-                <span>▶</span> Generate Roadmap
+                <span>▶</span> {primaryCtaLabel}
               </Link>
               <Link
                 href="/interview"
