@@ -15,18 +15,19 @@ export default function InterviewPage() {
         (window as any).webkitSpeechRecognition;
 
       if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
+        const recognition: SpeechRecognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
 
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = "en-US";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
 
-        recognitionRef.current.onstart = () => {
+        recognition.onstart = () => {
           setIsListening(true);
           setTranscript("");
         };
 
-        recognitionRef.current.onresult = (event: any) => {
+        recognition.onresult = (event: any) => {
           let interimTranscript = "";
 
           for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -42,11 +43,11 @@ export default function InterviewPage() {
           setTranscript(interimTranscript);
         };
 
-        recognitionRef.current.onerror = (event: any) => {
+        recognition.onerror = (event: any) => {
           console.error("Speech recognition error:", event.error);
         };
 
-        recognitionRef.current.onend = () => {
+        recognition.onend = () => {
           setIsListening(false);
           setTranscript("");
         };
