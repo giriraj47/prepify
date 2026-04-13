@@ -4,200 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceTranscriptionButton, VoiceWaveform } from "@/app/components/shared/VoiceTranscription";
 
-const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@700;800&family=DM+Mono:wght@400;500&display=swap');
-
-  .iv-root {
-    position: fixed; inset: 0;
-    background: #000;
-    color: #fff;
-    font-family: 'DM Mono', monospace;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .iv-glow {
-    position: absolute; inset: 0; pointer-events: none; z-index: 0;
-    background:
-      radial-gradient(ellipse 70% 58% at 60% 48%, rgba(10,62,55,0.5) 0%, rgba(5,28,26,0.24) 40%, transparent 66%),
-      radial-gradient(ellipse 26% 20% at 14% 78%, rgba(4,22,35,0.28) 0%, transparent 55%);
-  }
-
-  /* ── Nav ── */
-  .iv-nav {
-    position: relative; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.4rem 5vw;
-    border-bottom: 0.5px solid rgba(255,255,255,0.07);
-    flex-shrink: 0;
-  }
-
-  .iv-nav-logo {
-    font-family: 'Barlow', sans-serif; font-weight: 800;
-    font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; color: #fff;
-    text-decoration: none;
-  }
-
-  .iv-nav-meta {
-    display: flex; align-items: center; gap: 2rem;
-  }
-
-  .iv-nav-type {
-    font-size: 0.52rem; letter-spacing: 0.25em; text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  .iv-nav-back {
-    font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.75);; background: none; border: none; cursor: pointer;
-    font-family: 'DM Mono', monospace; transition: color 0.15s; padding: 0;
-  }
-  .iv-nav-back:hover { color: rgba(255,255,255,0.6); }
-
-  /* ── Body ── */
-  .iv-body {
-    position: relative; z-index: 1;
-    flex: 1; overflow: hidden;
-    display: flex; flex-direction: column;
-    padding: 5vh 5vw 3vh;
-  }
-
-  /* ── Question ── */
-  .iv-question {
-    font-family: 'Barlow', sans-serif; font-weight: 800;
-    font-size: 42px;
-    line-height: 1.07; letter-spacing: -0.01em; text-transform: uppercase;
-    color: #cdcdcdff; max-width: 90%;
-    margin-bottom: auto;
-    animation: ivFadeUp 0.4s ease both;
-  }
-
-  .iv-follow-up {
-    margin-top: 1.4rem;
-    padding-left: 1.2rem;
-    border-left: 0.5px solid rgba(74,222,128,0.3);
-    animation: ivFadeUp 0.4s 0.06s ease both;
-  }
-  .iv-follow-up-label {
-    font-size: 0.48rem; letter-spacing: 0.25em; text-transform: uppercase;
-    color: rgba(74,222,128,0.45); margin-bottom: 0.35rem; display: block;
-  }
-  .iv-follow-up-text {
-    font-size: 0.62rem; letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.3); line-height: 1.75; max-width: 50ch;
-  }
-
-  /* ── Textarea zone ── */
-  .iv-input-zone {
-    margin-top: 9vh;
-    border-top: 0.5px solid rgba(255,255,255,0.06);
-    padding-top: 2.2vh;
-    display: flex; flex-direction: column; gap: 1.2rem;
-    animation: ivFadeUp 0.4s 0.1s ease both;
-  }
-
-  .iv-textarea-wrap { position: relative; }
-
-  .iv-textarea {
-    width: 100%;
-    min-height: 300px;
-    max-height : 600px;
-    background: rgba(255,255,255,0.02);
-    border: 0.5px solid rgba(255,255,255,0.1);
-    font-family: 'DM Mono', monospace;
-    font-size: 1rem; letter-spacing: 0.06em;
-    color: rgba(255,255,255,0.7);
-    padding: 1.2rem 3.5rem 1.2rem 1.2rem;
-    resize: none; outline: none;
-    transition: border-color 0.15s, background 0.15s;
-    line-height: 1.8;
-  }
-  .iv-textarea::placeholder { color: rgba(255, 255, 255, 0.51); }
-  .iv-textarea:focus {
-    border-color: rgba(255,255,255,0.22);
-    background: rgba(255,255,255,0.03);
-  }
-  .iv-textarea:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .iv-voice-btn-wrap {
-    position: absolute; bottom: 0.9rem; right: 0.9rem;
-  }
-  .iv-voice-wave-wrap {
-    position: absolute; bottom: 1rem; left: 1rem;
-  }
-
-  /* ── Bottom bar ── */
-  .iv-bottom {
-    display: flex; align-items: center; justify-content: space-between;
-    animation: ivFadeUp 0.4s 0.14s ease both;
-  }
-
-  .iv-counter {
-    font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
-    color: rgba(255,255,255,0.2);
-  }
-
-  .iv-submit-btn {
-    background: none; cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
-    padding: 0.65rem 1.8rem;
-    border: 0.5px solid rgba(74,222,128,0.35);
-    color: rgba(74,222,128,0.85);
-    transition: all 0.15s;
-  }
-  .iv-submit-btn:not(:disabled):hover {
-    border-color: rgba(74,222,128,0.7);
-    color: #4ade80;
-  }
-  .iv-submit-btn:disabled {
-    border-color: rgba(255,255,255,0.08);
-    color: rgba(255,255,255,0.2);
-    cursor: not-allowed;
-  }
-
-  /* ── Progress dots ── */
-  .iv-progress {
-    display: flex; align-items: center; gap: 0.5rem;
-  }
-  .iv-dot {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: rgba(255,255,255,0.1);
-    transition: background 0.2s;
-  }
-  .iv-dot--done  { background: rgba(74,222,128,0.6); }
-  .iv-dot--active { background: rgba(255,255,255,0.6); }
-
-  /* ── Circular progress ── */
-  .iv-ring {
-    position: fixed; bottom: 2.2rem; right: 3rem; z-index: 10;
-  }
-  .iv-ring-label {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.52rem; color: rgba(255,255,255,0.4); letter-spacing: 0.05em;
-  }
-
-  /* ── States ── */
-  .iv-center {
-    position: fixed; inset: 0; background: #000;
-    display: flex; align-items: center; justify-content: center; z-index: 50;
-  }
-  .iv-center p {
-    font-family: 'DM Mono', monospace; font-size: 0.62rem;
-    letter-spacing: 0.22em; text-transform: uppercase;
-    color: rgba(255,255,255,0.25);
-    animation: ivPulse 1.6s ease-in-out infinite;
-  }
-
-  @keyframes ivPulse { 0%,100%{opacity:0.25} 50%{opacity:0.75} }
-  @keyframes ivFadeUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-`;
+import "./interview.css";
 
 export default function InterviewPage() {
   const router = useRouter();
@@ -278,29 +85,23 @@ export default function InterviewPage() {
 
   if (loading) {
     return (
-      <>
-        <style>{CSS}</style>
-        <div className="iv-center"><p>Preparing your interview…</p></div>
-      </>
+      <div className="iv-center"><p>Preparing your interview…</p></div>
     );
   }
 
   if (error) {
     return (
-      <>
-        <style>{CSS}</style>
-        <div className="iv-center">
-          <div style={{ textAlign: "center" }}>
-            <p style={{ color: "rgba(250,80,80,0.65)", marginBottom: "1.5rem", fontSize: "0.62rem", letterSpacing: "0.12em" }}>{error}</p>
-            <button
-              onClick={() => router.push("/")}
-              style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.15)", cursor: "pointer", fontFamily: "'DM Mono', monospace", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", padding: "0.55rem 1.2rem", transition: "all 0.15s" }}
-            >
-              Return to Dashboard
-            </button>
-          </div>
+      <div className="iv-center">
+        <div style={{ textAlign: "center" }}>
+          <p style={{ color: "rgba(250,80,80,0.65)", marginBottom: "1.5rem", fontSize: "0.62rem", letterSpacing: "0.12em" }}>{error}</p>
+          <button
+            onClick={() => router.push("/")}
+            style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.15)", cursor: "pointer", fontFamily: "'DM Mono', monospace", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", padding: "0.55rem 1.2rem", transition: "all 0.15s" }}
+          >
+            Return to Dashboard
+          </button>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -317,7 +118,6 @@ export default function InterviewPage() {
 
   return (
     <>
-      <style>{CSS}</style>
       <div className="iv-root">
         <div className="iv-glow" />
 
