@@ -153,7 +153,27 @@ export default function InterviewPage() {
                 rows={6}
                 placeholder="Type or dictate your response…"
                 value={displayValue}
-                onChange={(e) => setResponse(e.target.value)}
+                onChange={(e) => {
+                  const newVal = e.target.value;
+                  if (isListening && interimTranscript) {
+                    // displayValue = response + separator + interimTranscript.
+                    // Strip the interim suffix before storing so it doesn't
+                    // get double-appended on re-render.
+                    const sep = response.length > 0 && !response.endsWith(" ") ? " " : "";
+                    const suffix = sep + interimTranscript;
+                    if (newVal.endsWith(suffix)) {
+                      setResponse(newVal.slice(0, newVal.length - suffix.length));
+                    } else {
+                      setResponse(newVal);
+                    }
+                    // Clear interim so it doesn't re-appear at the end immediately
+                    // after the keystroke. Speech recognition will repopulate it on
+                    // its next recognition event.
+                    setInterimTranscript("");
+                  } else {
+                    setResponse(newVal);
+                  }
+                }}
                 disabled={submitting}
               />
               {/* <div className="iv-voice-wave-wrap">
